@@ -9,31 +9,40 @@ import {
   type BurnerToken,
 } from "../../hooks/burner.ts";
 import { fmtUsd } from "../../lib/format.ts";
-import { BurnerRail } from "./BurnerRail.tsx";
+import { BurnSummary, SafetyBanner, WhyBurn } from "./BurnerRail.tsx";
 import { NftGrid } from "./NftGrid.tsx";
 import { SummaryTab } from "./SummaryTab.tsx";
 import { TokenTable } from "./TokenTable.tsx";
 
 type Tab = "tokens" | "nfts" | "summary";
 
-const ACTIONS: { key: BurnAction; title: string; desc: string; glyph: React.ReactNode }[] = [
+const ACTIONS: {
+  key: BurnAction;
+  title: string;
+  desc: string;
+  sub: string;
+  glyph: React.ReactNode;
+}[] = [
   {
     key: "burn",
     title: "Burn Forever",
-    desc: "Send to the dead address — irreversible",
-    glyph: <FlameGlyph className="size-5" />,
+    desc: "Permanently burn spam tokens & NFTs.",
+    sub: "Can't be undone.",
+    glyph: <FlameGlyph className="size-4.5" />,
   },
   {
     key: "sell",
     title: "Sell for Value",
-    desc: "Swap dust into MON via Relay",
-    glyph: <DollarGlyph className="size-5" />,
+    desc: "Swap or sell dust for MON or stablecoins.",
+    sub: "Best for small balances.",
+    glyph: <DollarGlyph className="size-4.5" />,
   },
   {
     key: "convert",
     title: "Convert to USDC",
-    desc: "Consolidate into stable value",
-    glyph: <SwapGlyph className="size-5" />,
+    desc: "Swap dust to USDC via aggregator.",
+    sub: "Auto swap & send to wallet.",
+    glyph: <SwapGlyph className="size-4.5" />,
   },
 ];
 
@@ -105,48 +114,50 @@ export function BurnerPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start">
-        {/* ---- left column ---- */}
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          {/* header: title + tagline + burning trash, stats underneath */}
-          <div className="overflow-hidden rounded-xl border border-line bg-raised/40 p-5">
-            <div className="flex items-center gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[26px] font-bold leading-tight">Burner</span>
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-brand/15 text-brand">
-                    <FlameGlyph className="size-4" />
-                  </span>
-                </div>
-                <p className="mt-1.5 max-w-md text-[13px] leading-relaxed text-muted">
-                  Clean up your wallet. Burn dust, spam and worthless tokens — or squeeze the
-                  last drop of value out of them.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <HeaderStat
-                    label="Assets Scanned"
-                    value={scan.data ? String(scan.data.scanned) : null}
-                    sub="Across Monad"
-                  />
-                  <HeaderStat
-                    label="Estimated Reclaimable"
-                    value={scan.data ? fmtUsd(scan.data.reclaimableUsd) : null}
-                    sub="From dust & low value assets"
-                    tone="brand"
-                  />
-                </div>
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-4">
+        {/* ---- top row: hero + choose an action ---- */}
+        <div className="grid gap-3 lg:grid-cols-[1.15fr_1fr]">
+          {/* hero: title · taglines · stats, trash illustration right */}
+          <div className="relative overflow-hidden rounded-xl border border-line bg-raised/40 p-5">
+            <div className="relative z-10 max-w-[60%]">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[28px] font-bold leading-tight">Burner</span>
+                <span className="flex size-7 items-center justify-center rounded-lg bg-brand/15 text-brand">
+                  <FlameGlyph className="size-4" />
+                </span>
               </div>
-              <img
-                src="/burn.webp"
-                alt="Burning trash can"
-                className="-my-8 -mr-6 hidden size-44 shrink-0 object-contain sm:block md:size-52"
-              />
+              <p className="mt-2 text-[14px] font-medium">
+                Clean your wallet. Burn spam. Reclaim value.
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-muted">
+                Remove worthless tokens and NFTs cluttering your wallet. Convert dust to value
+                or burn it forever.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                <HeaderStat
+                  label="Assets Scanned"
+                  value={scan.data ? scan.data.scanned.toLocaleString("en-US") : null}
+                  sub="Across Monad"
+                />
+                <HeaderStat
+                  label="Estimated Reclaimable"
+                  value={scan.data ? fmtUsd(scan.data.reclaimableUsd) : null}
+                  sub="From dust & low value assets"
+                />
+              </div>
             </div>
+            <img
+              src="/burn.webp"
+              alt="Burning trash can"
+              className="absolute -right-4 top-1/2 hidden w-60 -translate-y-1/2 object-contain sm:block"
+            />
+            {/* soft glow behind the flame */}
+            <div className="absolute -right-6 top-1/2 hidden size-52 -translate-y-1/2 rounded-full bg-brand/10 blur-3xl sm:block" />
           </div>
 
-          {/* choose an action */}
-          <div className="rounded-xl border border-line bg-raised/40 p-4">
-            <div className="mb-3 text-[15px] font-semibold">Choose an action</div>
+          {/* choose an action — radio cards */}
+          <div className="rounded-xl border border-line bg-raised/40 p-5">
+            <div className="mb-3 text-[16px] font-semibold">Choose an action</div>
             <div className="grid gap-2.5 sm:grid-cols-3">
               {ACTIONS.map((a) => {
                 const active = action === a.key;
@@ -154,12 +165,18 @@ export function BurnerPage() {
                   <button
                     key={a.key}
                     onClick={() => setAction(a.key)}
-                    className={`flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left transition-colors active:scale-[0.99] ${
-                      active
-                        ? "border-brand bg-brand/10"
-                        : "border-line hover:border-muted/40"
+                    className={`relative flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left transition-colors active:scale-[0.99] ${
+                      active ? "border-brand bg-brand/10" : "border-line hover:border-muted/40"
                     }`}
                   >
+                    {/* radio */}
+                    <span
+                      className={`absolute right-3 top-3 flex size-4 items-center justify-center rounded-full border ${
+                        active ? "border-brand bg-brand" : "border-line"
+                      }`}
+                    >
+                      {active && <span className="size-1.5 rounded-full bg-bg" />}
+                    </span>
                     <span
                       className={`flex size-9 items-center justify-center rounded-lg ${
                         active ? "bg-brand text-bg" : "bg-overlay text-muted"
@@ -169,67 +186,73 @@ export function BurnerPage() {
                     </span>
                     <span className="text-[13px] font-semibold">{a.title}</span>
                     <span className="text-[11px] leading-snug text-muted">{a.desc}</span>
+                    <span className="text-[10px] text-muted/70">{a.sub}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-
-          {/* tabs + tab body */}
-          <div className="rounded-xl border border-line bg-raised/40">
-            <div className="flex gap-1 border-b border-line px-3 pt-2.5">
-              {(
-                [
-                  ["tokens", "Tokens"],
-                  ["nfts", "NFTs"],
-                  ["summary", "Summary"],
-                ] as const
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setTab(key)}
-                  className={`rounded-t-md px-3 pb-2 pt-1 text-[13px] font-medium transition-colors ${
-                    tab === key
-                      ? "border-b-2 border-brand font-semibold text-fg"
-                      : "text-muted hover:text-fg"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {tab === "tokens" && (
-              <TokenTable
-                tokens={tokens}
-                loading={scan.isLoading}
-                selected={selected}
-                selectedUsd={selectedUsd}
-                action={action}
-                busy={exec.busy}
-                progress={exec.progress}
-                onToggle={toggle}
-                onSetMany={setMany}
-                onRefresh={() => scan.refetch()}
-                onExecute={confirm}
-              />
-            )}
-            {tab === "nfts" && <NftGrid />}
-            {tab === "summary" && <SummaryTab />}
-          </div>
         </div>
 
-        {/* ---- right rail ---- */}
-        <div className="w-full shrink-0 lg:w-[330px]">
-          <BurnerRail
-            action={action}
-            count={selectedTokens.length}
-            valueUsd={selectedUsd}
-            feeMon={fee.data != null ? fee.data * Math.max(1, selectedTokens.length) : null}
-            monUsd={scan.data?.monUsd ?? null}
-            busy={exec.busy}
-            progress={exec.progress}
-            onConfirm={confirm}
-          />
+        {/* ---- main row: table card + summary rail ---- */}
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="rounded-xl border border-line bg-raised/40">
+              <div className="flex gap-1 border-b border-line px-3 pt-2.5">
+                {(
+                  [
+                    ["tokens", "Tokens"],
+                    ["nfts", "NFTs"],
+                    ["summary", "Summary"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setTab(key)}
+                    className={`rounded-t-md px-3 pb-2 pt-1 text-[13px] font-medium transition-colors ${
+                      tab === key
+                        ? "border-b-2 border-brand font-semibold text-fg"
+                        : "text-muted hover:text-fg"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {tab === "tokens" && (
+                <TokenTable
+                  tokens={tokens}
+                  loading={scan.isLoading}
+                  selected={selected}
+                  selectedUsd={selectedUsd}
+                  action={action}
+                  busy={exec.busy}
+                  progress={exec.progress}
+                  onToggle={toggle}
+                  onSetMany={setMany}
+                  onRefresh={() => scan.refetch()}
+                  onExecute={confirm}
+                />
+              )}
+              {tab === "nfts" && <NftGrid />}
+              {tab === "summary" && <SummaryTab />}
+            </div>
+            <SafetyBanner />
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <BurnSummary
+              action={action}
+              count={selectedTokens.length}
+              valueUsd={selectedUsd}
+              feeMon={fee.data != null ? fee.data * Math.max(1, selectedTokens.length) : null}
+              monUsd={scan.data?.monUsd ?? null}
+              busy={exec.busy}
+              progress={exec.progress}
+              onConfirm={confirm}
+            />
+            <WhyBurn />
+          </div>
         </div>
       </div>
     </div>
@@ -240,24 +263,18 @@ function HeaderStat({
   label,
   value,
   sub,
-  tone,
 }: {
   label: string;
   value: string | null;
   sub: string;
-  tone?: "brand";
 }) {
   return (
-    <div className="min-w-44 rounded-lg border border-line bg-bg/50 px-3.5 py-2.5">
+    <div className="min-w-40 rounded-lg border border-line bg-bg/50 px-3.5 py-2.5">
       <div className="text-[11px] text-muted">{label}</div>
       {value == null ? (
         <span className="skeleton mt-1 block h-6 w-16 rounded" />
       ) : (
-        <div
-          className={`text-xl font-bold tabular-nums ${tone === "brand" ? "text-brand" : ""}`}
-        >
-          {value}
-        </div>
+        <div className="text-xl font-bold tabular-nums">{value}</div>
       )}
       <div className="text-[10px] text-muted">{sub}</div>
     </div>
