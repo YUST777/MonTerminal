@@ -214,7 +214,8 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
   const grid = "grid grid-cols-[1.5fr_1fr_0.9fr_1fr_1fr] items-center gap-2";
 
   return (
-    <div className="absolute left-0 top-full z-30 mt-1 w-[38rem] rounded-md border border-line bg-overlay shadow-2xl">
+    /* mobile: pinned full-width under the nav+market bars; sm+: anchored dropdown */
+    <div className="fixed inset-x-2 top-[5.25rem] z-30 rounded-md border border-line bg-overlay shadow-2xl sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-1 sm:w-[38rem] sm:max-w-[calc(100vw-1.5rem)]">
       <div className="px-3 pt-2.5 text-sm font-semibold">Select market</div>
       <div className="p-2">
         <input
@@ -266,7 +267,9 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
         </div>
       )}
 
-      {/* volume-ranked market table */}
+      {/* volume-ranked market table — scrolls sideways on narrow screens */}
+      <div className="overflow-x-auto">
+      <div className="min-w-[34rem]">
       <div className={`${grid} px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted`}>
         <span>Market</span>
         {(["price", "change", "volume", "liquidity"] as SortKey[]).map((k) => (
@@ -323,6 +326,8 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
             No match — paste the token's 0x address to load it directly.
           </div>
         )}
+      </div>
+      </div>
       </div>
       <div className="flex items-center justify-between border-t border-line px-2.5 py-1 text-[10px] text-muted">
         <span>{rows.length} markets</span>

@@ -119,7 +119,7 @@ export function BurnerPage() {
         <div className="grid gap-3 lg:grid-cols-[1.15fr_1fr]">
           {/* hero: title · taglines · stats, trash illustration right */}
           <div className="relative overflow-hidden rounded-xl border border-line bg-raised/40 p-5">
-            <div className="relative z-10 max-w-[60%]">
+            <div className="relative z-10 sm:max-w-[60%]">
               <div className="flex items-center gap-2.5">
                 <span className="text-[28px] font-bold leading-tight">Burner</span>
                 <span className="flex size-7 items-center justify-center rounded-lg bg-brand/15 text-brand">

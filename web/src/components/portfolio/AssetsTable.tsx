@@ -43,6 +43,9 @@ export function AssetsTable({
           ))}
         </div>
       </div>
+      {/* 6 columns — one sideways-scrolling unit on narrow screens */}
+      <div className="overflow-x-auto">
+      <div className="min-w-[820px]">
       <div
         className={`${GRID} border-b border-line px-4 py-2 text-[11px] font-medium text-muted`}
       >
@@ -127,6 +130,8 @@ export function AssetsTable({
           </div>
         );
       })}
+      </div>
+      </div>
       {!loading && assets.length > COLLAPSED_ROWS && (
         <div className="flex justify-center border-t border-line/40 py-2.5">
           <button

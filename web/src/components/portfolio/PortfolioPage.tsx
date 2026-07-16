@@ -123,7 +123,7 @@ export function PortfolioPage() {
 
               <div className="flex shrink-0 flex-col items-stretch gap-4 xl:items-end">
                 <Chips value={headRange} onChange={setHeadRange} />
-                <div className="flex divide-x divide-line">
+                <div className="grid grid-cols-2 gap-y-3 sm:flex sm:divide-x sm:divide-line">
                   <Stat
                     label="24h P&L"
                     value={
@@ -227,7 +227,7 @@ function Chips({ value, onChange }: { value: HistoryRange; onChange: (r: History
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "up" | "down" }) {
   return (
-    <div className="flex flex-col items-end gap-0.5 px-4 first:pl-0 last:pr-0">
+    <div className="flex flex-col gap-0.5 sm:items-end sm:px-4 sm:first:pl-0 sm:last:pr-0">
       <span className="whitespace-nowrap text-[11px] text-muted">{label}</span>
       <span
         className={`text-[15px] font-semibold tabular-nums ${

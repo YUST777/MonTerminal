@@ -9,7 +9,7 @@ export function NftGrid() {
 
   if (scan.isLoading) {
     return (
-      <div className="grid gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="skeleton h-32 rounded-lg" />
         ))}
@@ -25,7 +25,7 @@ export function NftGrid() {
     );
   }
   return (
-    <div className="grid gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
       {nfts.map((n) => {
         const key = `${n.contract}:${n.tokenId}`;
         const busy = burning === key;

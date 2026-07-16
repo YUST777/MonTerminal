@@ -18,16 +18,16 @@ export function TopNav() {
   const spotPath = token ? `/token/monad/${token.address.toLowerCase()}` : "/";
 
   return (
-    <header className="flex h-11 items-center gap-5 border-b border-line bg-bg px-3">
+    <header className="flex h-11 items-center gap-2 border-b border-line bg-bg px-2 sm:gap-5 sm:px-3">
       {/* logo — text-only wordmark */}
-      <button onClick={() => navigate(spotPath)} className="flex items-center">
+      <button onClick={() => navigate(spotPath)} className="flex shrink-0 items-center">
         <span className="text-[15px] font-bold tracking-tight">
           MONO<span className="monad-gradient-text">LIMIT</span>
         </span>
       </button>
 
-      {/* primary nav */}
-      <nav className="flex items-center gap-0.5 text-[13px]">
+      {/* primary nav — scrolls sideways instead of wrapping on tiny screens */}
+      <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto text-[13px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <NavItem active={!onBridge && !onPortfolio && !onBurner} onClick={() => navigate(spotPath)}>
           Spot
         </NavItem>
@@ -43,7 +43,7 @@ export function TopNav() {
       </nav>
 
       {/* right cluster */}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <ConnectButton.Custom>
           {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
             const connected = mounted && account && chain;
@@ -52,14 +52,19 @@ export function TopNav() {
                 onClick={
                   !connected ? openConnectModal : chain?.unsupported ? openChainModal : openAccountModal
                 }
-                className="flex items-center gap-1.5 rounded-md border border-line bg-raised px-2.5 py-1 text-xs font-semibold hover:border-brand"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-line bg-raised px-2.5 py-1 text-xs font-semibold hover:border-brand"
               >
                 <WalletGlyph />
-                {!connected
-                  ? "Connect Wallet"
-                  : chain?.unsupported
-                    ? "Wrong network"
-                    : (account.displayName ?? shortAddr(account.address))}
+                {!connected ? (
+                  <>
+                    <span className="sm:hidden">Connect</span>
+                    <span className="hidden sm:inline">Connect Wallet</span>
+                  </>
+                ) : chain?.unsupported ? (
+                  "Wrong network"
+                ) : (
+                  (account.displayName ?? shortAddr(account.address))
+                )}
               </button>
             );
           }}

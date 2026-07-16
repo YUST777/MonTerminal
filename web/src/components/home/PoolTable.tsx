@@ -41,7 +41,9 @@ export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; lo
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-line bg-raised/40">
+    // On narrow screens the 10-col grid scrolls sideways as one unit
+    <div className="flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-hidden rounded-md border border-line bg-raised/40">
+      <div className="flex min-h-0 min-w-[880px] flex-1 flex-col">
       <div
         className={`${GRID} border-b border-line px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted`}
       >
@@ -115,6 +117,7 @@ export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; lo
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ export const useToasts = create<ToastState>((set) => ({
 export function Toasts() {
   const { toasts, dismiss } = useToasts();
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+    <div className="fixed bottom-4 left-4 right-4 z-50 flex flex-col items-end gap-2 sm:left-auto">
       {toasts.map((t) => (
         <button
           key={t.id}

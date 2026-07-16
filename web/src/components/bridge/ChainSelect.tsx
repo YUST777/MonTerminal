@@ -151,10 +151,10 @@ export function TokenSelectModal({
               document.getElementById("token-search") as HTMLInputElement | null
             )?.focus();
           }}
-          className="animate-sheet-in fixed left-1/2 top-[16vh] z-50 w-[600px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-3xl border border-line bg-raised p-6 shadow-2xl outline-none"
+          className="animate-sheet-in fixed left-1/2 top-[8vh] z-50 w-[600px] max-w-[calc(100vw-1rem)] -translate-x-1/2 rounded-3xl border border-line bg-raised p-4 shadow-2xl outline-none sm:top-[16vh] sm:p-6"
         >
-          <div className="mb-5 flex items-center gap-4">
-            <Dialog.Title className="shrink-0 text-lg font-semibold">
+          <div className="mb-4 flex items-center gap-3 sm:mb-5 sm:gap-4">
+            <Dialog.Title className="hidden shrink-0 text-lg font-semibold sm:block">
               Select a token
             </Dialog.Title>
             <div className="flex flex-1 items-center gap-2.5 rounded-full bg-bg/60 px-4 py-2.5 ring-1 ring-line transition-shadow focus-within:ring-brand">
@@ -176,14 +176,14 @@ export function TokenSelectModal({
             </Dialog.Close>
           </div>
 
-          {/* chain strip — pick the origin network */}
-          <div className="mb-5 flex items-center gap-2">
+          {/* chain strip — pick the origin network; scrolls sideways on phones */}
+          <div className="mb-4 flex items-center gap-2 overflow-x-auto sm:mb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {BRIDGE_CHAINS.map((c) => (
               <button
                 key={c.id}
                 title={c.name}
                 onClick={() => setActiveChain(c)}
-                className={`flex items-center justify-center rounded-xl px-3.5 py-2.5 transition-all duration-150 active:scale-95 ${
+                className={`flex shrink-0 items-center justify-center rounded-xl px-3.5 py-2.5 transition-all duration-150 active:scale-95 ${
                   activeChain.id === c.id
                     ? "bg-brand/15 ring-1 ring-brand"
                     : "bg-overlay/40 ring-1 ring-transparent hover:bg-overlay hover:ring-line"
@@ -195,7 +195,7 @@ export function TokenSelectModal({
           </div>
 
           {/* token grid */}
-          <div className="grid max-h-[380px] grid-cols-2 gap-2.5 overflow-y-auto">
+          <div className="grid max-h-[55vh] grid-cols-1 gap-2.5 overflow-y-auto sm:max-h-[380px] sm:grid-cols-2">
             {tokens.map((t) => (
               <TokenCard
                 key={t.address + t.symbol}

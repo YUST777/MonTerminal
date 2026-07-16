@@ -19,7 +19,7 @@ export function OrdersDock() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-line">
+      <div className="grid min-h-0 flex-1 grid-rows-2 divide-y divide-line md:grid-rows-1 md:grid-cols-2 md:divide-x md:divide-y-0">
         <OpenOrdersTable orders={open} loading={isLoading} />
         <OrderHistoryTable orders={closed} />
       </div>

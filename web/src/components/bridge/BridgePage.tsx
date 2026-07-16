@@ -159,7 +159,7 @@ export function BridgePage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-[440px] flex-col px-4 py-12">
+      <div className="mx-auto flex w-full max-w-[440px] flex-col px-3 py-6 sm:px-4 sm:py-12">
         <div className="mb-3 px-1 text-sm font-semibold">Bridge</div>
 
         {/* Sell card */}

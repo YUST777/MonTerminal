@@ -113,7 +113,9 @@ export function TokenTable({
         </div>
       </div>
 
-      {/* table head */}
+      {/* table head — the 8-col grid scrolls sideways as one unit on phones */}
+      <div className="overflow-x-auto">
+      <div className="min-w-[860px]">
       <div
         className={`${GRID} border-y border-line bg-overlay/30 px-4 py-2 text-[11px] font-medium text-muted`}
       >
@@ -201,6 +203,8 @@ export function TokenTable({
           </div>
         );
       })}
+      </div>
+      </div>
 
       {/* pagination */}
       {filtered.length > 0 && (
