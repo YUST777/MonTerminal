@@ -1,18 +1,19 @@
 import { useState } from "react";
-import { useAccount, useBalance, useWalletClient } from "wagmi";
-import { monad } from "@monolimit/shared";
-import { executeRelaySteps, getRelayQuote, NATIVE } from "../lib/relay.ts";
-import { fmtAmount, parseAmount } from "../lib/format.ts";
-import { useTerminal } from "../state/terminal.ts";
-import { useToasts } from "./Toasts.tsx";
+import { useAccount, useWalletClient } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
+import { monad } from "@monolimit/shared";
+import { executeRelaySteps, getRelayQuote, NATIVE } from "../../lib/relay.ts";
+import { useTokenBalance } from "../../hooks/trade.ts";
+import { fmtAmount, formatUnitsTrimmed, parseAmount } from "../../lib/format.ts";
+import { useTerminal } from "../../state/terminal.ts";
+import { useToasts } from "../Toasts.tsx";
 
-/** Instant market buy: native MON → token via Relay. */
-export function BuyForm() {
+/** Instant market sell: token → native MON via Relay (approval is a Relay step). */
+export function SellMarket() {
   const { token } = useTerminal();
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { data: monBalance } = useBalance({ address, query: { refetchInterval: 5_000 } });
+  const { data: balance } = useTokenBalance(token?.address);
   const [amountText, setAmountText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [quoteOut, setQuoteOut] = useState<string | null>(null);
@@ -20,9 +21,10 @@ export function BuyForm() {
   const queryClient = useQueryClient();
 
   if (!token) return null;
-  const amount = parseAmount(amountText, 18);
+  const amount = parseAmount(amountText, token.decimals);
+  const overBalance = amount !== null && balance !== undefined && amount > balance;
 
-  const buy = async () => {
+  const sell = async () => {
     if (!amount || !address || !walletClient) return;
     setStatus("quoting…");
     try {
@@ -30,13 +32,13 @@ export function BuyForm() {
         user: address,
         originChainId: monad.id,
         destinationChainId: monad.id,
-        originCurrency: NATIVE,
-        destinationCurrency: token.address,
+        originCurrency: token.address,
+        destinationCurrency: NATIVE,
         amount: amount.toString(),
       });
       setQuoteOut(quote.details?.currencyOut?.amountFormatted ?? null);
       await executeRelaySteps(quote, walletClient, setStatus);
-      push("success", `Bought ${token.symbol}`);
+      push("success", `Sold ${token.symbol} for MON`);
       queryClient.invalidateQueries();
     } catch (err) {
       push("error", (err as Error).message.split("\n")[0]!.slice(0, 140));
@@ -49,29 +51,24 @@ export function BuyForm() {
     <div className="space-y-2.5 p-2.5">
       <div>
         <div className="mb-1 flex justify-between text-[11px] text-muted">
-          <span>Spend (MON)</span>
-          <span>{monBalance ? fmtAmount(monBalance.value, 18) : "—"} MON</span>
+          <span>Sell ({token.symbol})</span>
+          <span>{balance !== undefined ? fmtAmount(balance, token.decimals) : "—"}</span>
         </div>
         <input
           value={amountText}
           onChange={(e) => setAmountText(e.target.value)}
           placeholder="0.0"
           inputMode="decimal"
-          className="w-full rounded border border-line bg-bg px-2 py-1.5 text-right text-sm outline-none focus:border-brand"
+          className="w-full rounded border border-line bg-bg px-2 py-1.5 text-right text-sm outline-none focus:border-down"
         />
         <div className="mt-1 flex gap-1">
-          {[10, 25, 50, 100].map((p) => (
+          {[25, 50, 75, 100].map((p) => (
             <button
               key={p}
               onClick={() =>
-                monBalance &&
-                setAmountText(
-                  // leave 0.5 MON for gas on the 100% preset
-                  (
-                    Number((monBalance.value * BigInt(p)) / 100n) / 1e18 -
-                    (p === 100 ? 0.5 : 0)
-                  ).toFixed(4),
-                )
+                balance !== undefined &&
+                // gas is paid in MON, so the full token balance is sellable
+                setAmountText(formatUnitsTrimmed((balance * BigInt(p)) / 100n, token.decimals))
               }
               className="flex-1 rounded border border-line px-1 py-0.5 text-[11px] text-muted hover:text-fg"
             >
@@ -80,17 +77,18 @@ export function BuyForm() {
           ))}
         </div>
       </div>
+      {overBalance && <div className="text-[11px] text-warn">More than your balance</div>}
       {quoteOut && (
         <div className="text-[11px] text-muted">
-          est. out: <span className="text-up">{quoteOut}</span> {token.symbol}
+          est. out: <span className="text-up">{quoteOut}</span> MON
         </div>
       )}
       <button
-        onClick={buy}
-        disabled={!amount || amount === 0n || !!status || !walletClient}
-        className="monad-gradient w-full rounded py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
+        onClick={sell}
+        disabled={!amount || amount === 0n || overBalance || !!status || !walletClient}
+        className="w-full rounded bg-down/80 py-1.5 text-xs font-semibold text-white hover:bg-down disabled:opacity-40"
       >
-        {status ?? `Buy ${token.symbol}`}
+        {status ?? `Sell ${token.symbol}`}
       </button>
       <div className="text-center text-[10px] text-muted">routed via Relay</div>
     </div>

@@ -1,43 +1,16 @@
-import { useState } from "react";
 import { tickToExecutionPrice } from "@monolimit/shared";
-import { BuyForm } from "./BuyForm.tsx";
-import { LadderBuilder, StopLossForm, TakeProfitForm } from "./OrderForms.tsx";
+import { TradePanel } from "./panel/TradePanel.tsx";
 import { useLivePrice, usePoolStats } from "../hooks/market.ts";
 import { KIND, STATUS, orderKey, useUserOrders } from "../hooks/orders.ts";
 import { useCancelOrders, useTokenBalance } from "../hooks/trade.ts";
 import { fmtAmount, fmtPct, fmtPrice, fmtUsd } from "../lib/format.ts";
 import { useTerminal } from "../state/terminal.ts";
 
-const TABS = ["Buy", "TP", "SL", "Ladder"] as const;
-type Tab = (typeof TABS)[number];
-const TAB_TITLE: Record<Tab, string> = {
-  Buy: "Instant buy",
-  TP: "Take-profit",
-  SL: "Stop-loss",
-  Ladder: "Sell ladder",
-};
-
 export function OrderSidebar() {
-  const [tab, setTab] = useState<Tab>("Buy");
   const { token } = useTerminal();
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-raised/40">
-      {/* segmented tab pills */}
-      <div className="grid grid-cols-4 gap-1 border-b border-line p-1.5">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            title={TAB_TITLE[t]}
-            className={`rounded px-1 py-1 text-[11px] font-semibold ${
-              tab === t ? "bg-overlay text-fg" : "text-muted hover:bg-raised hover:text-fg"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {!token ? (
           <div className="p-3 text-center text-[11px] text-muted">
@@ -45,10 +18,7 @@ export function OrderSidebar() {
           </div>
         ) : (
           <>
-            {tab === "Buy" && <BuyForm />}
-            {tab === "TP" && <TakeProfitForm />}
-            {tab === "SL" && <StopLossForm />}
-            {tab === "Ladder" && <LadderBuilder />}
+            <TradePanel />
             <PositionCard />
             <MarketTriggers />
           </>
