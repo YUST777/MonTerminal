@@ -157,10 +157,6 @@ export function TokenSelectModal({
                 <ChainIcon chain={c} size="size-6" />
               </button>
             ))}
-            <span className="ml-auto flex flex-col items-center gap-1">
-              <span className="truncate text-sm font-medium">{activeChain.name}</span>
-              <span className="h-0.5 w-6 rounded-full bg-brand" />
-            </span>
           </div>
 
           {/* token grid */}
@@ -210,8 +206,8 @@ function TokenCard({
       onClick={onPick}
       className={`group flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-all duration-150 active:scale-[0.98] ${
         active
-          ? "bg-brand/15 ring-1 ring-brand shadow-[0_0_24px_-6px] shadow-brand/50"
-          : "bg-overlay/40 ring-1 ring-transparent hover:bg-overlay hover:ring-line"
+          ? "bg-brand/15"
+          : "bg-overlay/40 hover:bg-overlay"
       }`}
     >
       <TokenImg token={token} size="size-9" />
