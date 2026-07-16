@@ -1,6 +1,6 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { fallback, http } from "wagmi";
-import { monad, RPC_URLS, ADDRESSES } from "@monolimit/shared";
+import { monad, RPC_URLS, ADDRESSES, BOOK_DEPLOY_BLOCK } from "@monolimit/shared";
 import type { Address } from "viem";
 
 export const wagmiConfig = getDefaultConfig({
@@ -18,4 +18,6 @@ export const BOOK_ADDRESS: Address =
   (import.meta.env.VITE_BOOK_ADDRESS as Address | undefined) ?? ADDRESSES.LIMIT_ORDER_BOOK;
 
 /** First block to scan for order events. */
-export const DEPLOY_BLOCK = BigInt(import.meta.env.VITE_DEPLOY_BLOCK ?? "0");
+export const DEPLOY_BLOCK = import.meta.env.VITE_DEPLOY_BLOCK
+  ? BigInt(import.meta.env.VITE_DEPLOY_BLOCK)
+  : BOOK_DEPLOY_BLOCK;

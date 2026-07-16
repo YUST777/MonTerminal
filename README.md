@@ -56,7 +56,7 @@ Other properties:
 
 | Contract | Address |
 |---|---|
-| LimitOrderBook | *deploying — pending wallet funding* |
+| LimitOrderBook | [`0x595368DffF28eC08718Ca620EC9a981772628425`](https://monadscan.com/address/0x595368DffF28eC08718Ca620EC9a981772628425) (deploy block 88077155, Sourcify-verified) |
 | WMON | `0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A` |
 | Uniswap v3 Factory | `0x204FAca1764B154221e35c0d20aBb3c525710498` |
 | SwapRouter02 | `0xfE31F71C1b106EAc32F1A19239c9a9A72ddfb900` |
