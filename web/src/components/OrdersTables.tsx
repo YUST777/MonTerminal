@@ -29,7 +29,7 @@ export function OrdersDock() {
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="whitespace-nowrap px-3 py-1.5 text-left text-[11px] font-medium uppercase tracking-wide text-muted">
+    <th className="whitespace-nowrap px-2 py-1 text-left text-[10px] font-medium uppercase tracking-wide text-muted">
       {children}
     </th>
   );
@@ -38,7 +38,7 @@ function Th({ children }: { children: React.ReactNode }) {
 function Td({ children, tone }: { children: React.ReactNode; tone?: "up" | "down" | "muted" }) {
   return (
     <td
-      className={`whitespace-nowrap px-3 py-1.5 text-xs ${
+      className={`whitespace-nowrap px-2 py-1 text-[11px] ${
         tone === "up" ? "text-up" : tone === "down" ? "text-down" : tone === "muted" ? "text-muted" : ""
       }`}
     >
@@ -54,7 +54,7 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
 
   return (
     <div className="flex min-h-0 flex-col">
-      <div className="border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold">
+      <div className="border-b border-line bg-raised px-2 py-1 text-[11px] font-semibold">
         Open orders <span className="text-muted">({orders.length})</span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
@@ -112,7 +112,7 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
                     <button
                       onClick={() => cancel([o.orderId], o.book)}
                       disabled={isPending}
-                      className="rounded border border-line px-2 py-0.5 text-muted hover:border-down hover:text-down disabled:opacity-40"
+                      className="rounded border border-line px-1.5 py-px text-[10px] text-muted hover:border-down hover:text-down disabled:opacity-40"
                     >
                       cancel
                     </button>
@@ -122,7 +122,7 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
             })}
             {!loading && orders.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-xs text-muted">
+                <td colSpan={7} className="px-2 py-5 text-center text-[11px] text-muted">
                   No open orders — place a stop-loss and go to sleep.
                 </td>
               </tr>
@@ -150,7 +150,7 @@ export function OrderHistoryTable({ orders }: { orders: UserOrder[] }) {
   };
   return (
     <div className="flex min-h-0 flex-col">
-      <div className="border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold">
+      <div className="border-b border-line bg-raised px-2 py-1 text-[11px] font-semibold">
         History <span className="text-muted">({orders.length})</span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
@@ -190,7 +190,7 @@ export function OrderHistoryTable({ orders }: { orders: UserOrder[] }) {
             })}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-xs text-muted">
+                <td colSpan={5} className="px-2 py-5 text-center text-[11px] text-muted">
                   Nothing here yet.
                 </td>
               </tr>

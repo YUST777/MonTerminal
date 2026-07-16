@@ -19,8 +19,9 @@ export function KlineChart() {
   const overlayIds = useRef<string[]>([]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const chart = init(containerRef.current, {
+    const el = containerRef.current;
+    if (!el) return;
+    const chart = init(el, {
       styles: {
         grid: {
           horizontal: { color: "#1d1e26" },
@@ -48,7 +49,7 @@ export function KlineChart() {
     });
     chartRef.current = chart;
     return () => {
-      dispose(containerRef.current!);
+      dispose(el);
       chartRef.current = null;
     };
   }, []);
@@ -110,22 +111,22 @@ export function KlineChart() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-9 items-center gap-0.5 border-b border-line bg-bg px-2">
+      <div className="flex h-7 items-center gap-0.5 border-b border-line bg-bg px-1.5">
         {TFS.map((t) => (
           <button
             key={t}
             onClick={() => setTf(t)}
-            className={`rounded px-2 py-1 text-xs ${
+            className={`rounded px-1.5 py-0.5 text-[11px] ${
               tf === t ? "bg-overlay font-semibold text-fg" : "text-muted hover:text-fg"
             }`}
           >
             {t}
           </button>
         ))}
-        <span className="mx-2 h-4 w-px bg-line" aria-hidden />
-        <span className="text-xs font-medium">Candles</span>
-        <div className="ml-auto flex items-center gap-3 text-xs">
-          <span className="border-b-2 border-brand px-1 pb-0.5 font-medium">Chart</span>
+        <span className="mx-1.5 h-3.5 w-px bg-line" aria-hidden />
+        <span className="text-[11px] font-medium">Candles</span>
+        <div className="ml-auto flex items-center gap-2.5 text-[11px]">
+          <span className="border-b border-brand px-1 pb-px font-medium">Chart</span>
           <span className="text-muted">
             data: GeckoTerminal · price lines = your live triggers
           </span>

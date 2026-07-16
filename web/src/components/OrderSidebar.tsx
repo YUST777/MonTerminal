@@ -17,9 +17,9 @@ export function OrderSidebar() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`whitespace-nowrap px-1 py-2 text-xs font-medium ${
+            className={`whitespace-nowrap px-1 py-1.5 text-[11px] font-medium ${
               tab === t
-                ? "border-b-2 border-brand text-fg"
+                ? "border-b border-brand text-fg"
                 : "text-muted hover:text-fg"
             }`}
           >
@@ -29,7 +29,7 @@ export function OrderSidebar() {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {!token ? (
-          <div className="p-4 text-center text-xs text-muted">
+          <div className="p-3 text-center text-[11px] text-muted">
             Pick a token first — paste its address in the search bar.
           </div>
         ) : (

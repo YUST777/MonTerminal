@@ -17,12 +17,12 @@ export function TokenHeader() {
   const up = (chg ?? 0) >= 0;
 
   return (
-    <div className="flex h-11 items-center gap-4 overflow-x-auto border-b border-line bg-bg px-4 whitespace-nowrap">
-      <span className="text-lg font-semibold tabular-nums">
+    <div className="flex h-8 items-center gap-3 overflow-x-auto border-b border-line bg-bg px-3 whitespace-nowrap">
+      <span className="text-[15px] font-semibold tabular-nums">
         {stats?.priceUsd != null ? fmtUsd(stats.priceUsd) : "…"}
       </span>
-      <span className="flex items-baseline gap-1.5 text-sm">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted">24h</span>
+      <span className="flex items-baseline gap-1 text-xs">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted">24h</span>
         <span className={`rounded px-1 font-medium ${up ? "bg-up/10 text-up" : "bg-down/10 text-down"}`}>
           {chg != null ? fmtPct(chg) : "—"}
         </span>
@@ -52,7 +52,7 @@ export function TokenHeader() {
         href={`https://monadscan.com/token/${token.address}`}
         target="_blank"
         rel="noreferrer"
-        className="ml-auto text-xs text-muted hover:text-brand"
+        className="ml-auto text-[11px] text-muted hover:text-brand"
       >
         {shortAddr(token.address)} ↗
       </a>
@@ -62,13 +62,13 @@ export function TokenHeader() {
 
 function InlineStat({ label, value }: { label: string; value: string }) {
   return (
-    <span className="flex items-baseline gap-1.5 text-sm">
-      <span className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</span>
+    <span className="flex items-baseline gap-1 text-xs">
+      <span className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</span>
       <span className="font-medium tabular-nums">{value}</span>
     </span>
   );
 }
 
 function Divider() {
-  return <span className="h-4 w-px shrink-0 bg-line" aria-hidden />;
+  return <span className="h-3.5 w-px shrink-0 bg-line" aria-hidden />;
 }

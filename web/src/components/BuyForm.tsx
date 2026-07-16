@@ -46,9 +46,9 @@ export function BuyForm() {
   };
 
   return (
-    <div className="space-y-3 p-3">
+    <div className="space-y-2.5 p-2.5">
       <div>
-        <div className="mb-1 flex justify-between text-xs text-muted">
+        <div className="mb-1 flex justify-between text-[11px] text-muted">
           <span>Spend (MON)</span>
           <span>{monBalance ? fmtAmount(monBalance.value, 18) : "—"} MON</span>
         </div>
@@ -57,7 +57,7 @@ export function BuyForm() {
           onChange={(e) => setAmountText(e.target.value)}
           placeholder="0.0"
           inputMode="decimal"
-          className="w-full rounded border border-line bg-bg px-3 py-2 text-right text-lg outline-none focus:border-brand"
+          className="w-full rounded border border-line bg-bg px-2 py-1.5 text-right text-sm outline-none focus:border-brand"
         />
         <div className="mt-1 flex gap-1">
           {[10, 25, 50, 100].map((p) => (
@@ -73,7 +73,7 @@ export function BuyForm() {
                   ).toFixed(4),
                 )
               }
-              className="flex-1 rounded border border-line px-1 py-0.5 text-xs text-muted hover:text-fg"
+              className="flex-1 rounded border border-line px-1 py-0.5 text-[11px] text-muted hover:text-fg"
             >
               {p}%
             </button>
@@ -81,18 +81,18 @@ export function BuyForm() {
         </div>
       </div>
       {quoteOut && (
-        <div className="text-xs text-muted">
+        <div className="text-[11px] text-muted">
           est. out: <span className="text-up">{quoteOut}</span> {token.symbol}
         </div>
       )}
       <button
         onClick={buy}
         disabled={!amount || amount === 0n || !!status || !walletClient}
-        className="w-full rounded bg-up py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-40"
+        className="w-full rounded bg-up py-1.5 text-xs font-semibold text-bg hover:opacity-90 disabled:opacity-40"
       >
         {status ?? `Buy ${token.symbol}`}
       </button>
-      <div className="text-center text-[11px] text-muted">routed via Relay</div>
+      <div className="text-center text-[10px] text-muted">routed via Relay</div>
     </div>
   );
 }

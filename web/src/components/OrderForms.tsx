@@ -21,7 +21,7 @@ function PctOfBalance({
 }) {
   return (
     <div>
-      <div className="mb-1 flex justify-between text-xs text-muted">
+      <div className="mb-1 flex justify-between text-[11px] text-muted">
         <span>Amount ({pct}% of balance)</span>
         <span>{balance !== undefined ? fmtAmount(balance, decimals) : "—"}</span>
       </div>
@@ -38,7 +38,7 @@ function PctOfBalance({
           <button
             key={p}
             onClick={() => setPct(p)}
-            className={`flex-1 rounded border px-1 py-0.5 text-xs ${
+            className={`flex-1 rounded border px-1 py-0.5 text-[11px] ${
               pct === p ? "border-brand text-brand" : "border-line text-muted hover:text-fg"
             }`}
           >
@@ -81,10 +81,10 @@ export function ApprovalGate({
   };
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="mt-2.5 space-y-2">
       {needsApproval && (
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full border border-brand text-brand">
+        <div className="flex items-center gap-2 text-[11px] text-muted">
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-brand text-brand">
             1
           </span>
           One-time approval lets the book pull tokens only when your trigger fires.
@@ -94,7 +94,7 @@ export function ApprovalGate({
         <button
           onClick={() => run(onApprove, "approving")}
           disabled={disabled || step !== "idle" || busy}
-          className="w-full rounded bg-brand py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-40"
+          className="w-full rounded bg-brand py-1.5 text-xs font-semibold text-bg hover:opacity-90 disabled:opacity-40"
         >
           {step === "approving" ? "Approving…" : "Approve"}
         </button>
@@ -102,7 +102,7 @@ export function ApprovalGate({
         <button
           onClick={() => run(onPlace, "placing")}
           disabled={disabled || step !== "idle" || busy}
-          className="w-full rounded bg-brand py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-40"
+          className="w-full rounded bg-brand py-1.5 text-xs font-semibold text-bg hover:opacity-90 disabled:opacity-40"
         >
           {step === "placing" ? "Placing…" : placeLabel}
         </button>
@@ -113,7 +113,7 @@ export function ApprovalGate({
 
 function Row({ k, v, tone }: { k: string; v: string; tone?: "up" | "down" | "warn" }) {
   return (
-    <div className="flex justify-between text-xs">
+    <div className="flex justify-between text-[11px]">
       <span className="text-muted">{k}</span>
       <span className={tone === "up" ? "text-up" : tone === "down" ? "text-down" : tone === "warn" ? "text-warn" : ""}>
         {v}
@@ -150,13 +150,13 @@ export function StopLossForm() {
   if (!token || !pool) return null;
 
   return (
-    <div className="space-y-3 p-3">
+    <div className="space-y-2.5 p-2.5">
       <div className="flex gap-1">
         {SL_PRESETS.map((p) => (
           <button
             key={p.label}
             onClick={() => setMult(p.mult)}
-            className={`flex-1 rounded border py-1 text-sm ${
+            className={`flex-1 rounded border py-0.5 text-xs ${
               mult === p.mult ? "border-down text-down" : "border-line text-muted hover:text-fg"
             }`}
           >
@@ -216,13 +216,13 @@ export function TakeProfitForm() {
   if (!token || !pool) return null;
 
   return (
-    <div className="space-y-3 p-3">
+    <div className="space-y-2.5 p-2.5">
       <div className="flex gap-1">
         {TP_PRESETS.map((m) => (
           <button
             key={m}
             onClick={() => setMult(m)}
-            className={`flex-1 rounded border py-1 text-sm ${
+            className={`flex-1 rounded border py-0.5 text-xs ${
               mult === m ? "border-up text-up" : "border-line text-muted hover:text-fg"
             }`}
           >
@@ -316,13 +316,13 @@ export function LadderBuilder() {
   const approvalTotal = totalAmount > slAmount ? totalAmount : slAmount;
 
   return (
-    <div className="space-y-3 p-3">
-      <div className="text-xs text-muted">
+    <div className="space-y-2.5 p-2.5">
+      <div className="text-[11px] text-muted">
         Sell tranches at multiples — one atomic tx, each rung cancellable on its own. The rest
         rides.
       </div>
       {rungs.map((r, i) => (
-        <div key={i} className="flex items-center gap-2 text-sm">
+        <div key={i} className="flex items-center gap-2 text-xs">
           <span className="text-muted">sell</span>
           <input
             type="number"
@@ -330,7 +330,7 @@ export function LadderBuilder() {
             max={100}
             value={r.pct}
             onChange={(e) => update(i, { pct: Number(e.target.value) })}
-            className="w-16 rounded border border-line bg-bg px-2 py-1 text-right"
+            className="w-14 rounded border border-line bg-bg px-1.5 py-0.5 text-right"
           />
           <span className="text-muted">% at</span>
           <input
@@ -339,7 +339,7 @@ export function LadderBuilder() {
             step={0.5}
             value={r.mult}
             onChange={(e) => update(i, { mult: Number(e.target.value) })}
-            className="w-16 rounded border border-line bg-bg px-2 py-1 text-right"
+            className="w-14 rounded border border-line bg-bg px-1.5 py-0.5 text-right"
           />
           <span className="text-muted">×</span>
           <button
@@ -353,18 +353,18 @@ export function LadderBuilder() {
       <div className="flex gap-2">
         <button
           onClick={() => setRungs((rs) => [...rs, { pct: 10, mult: 3 }])}
-          className="rounded border border-line px-2 py-1 text-xs text-muted hover:text-fg"
+          className="rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-fg"
         >
           + rung
         </button>
         <button
           onClick={() => setRungs(GMGN_PRESET)}
-          className="rounded border border-line px-2 py-1 text-xs text-muted hover:text-fg"
+          className="rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-fg"
         >
           GMGN preset
         </button>
       </div>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 text-xs">
         <input
           type="checkbox"
           checked={stopPct !== null}

@@ -65,12 +65,12 @@ export function MarketBar() {
   };
 
   return (
-    <div className="flex h-12 items-center gap-3 border-b border-line bg-bg px-4">
+    <div className="flex h-9 items-center gap-2.5 border-b border-line bg-bg px-3">
       {/* current market pill */}
       <div ref={ref} className="relative">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 rounded-lg bg-raised px-3 py-1.5 text-sm font-semibold ring-1 ring-line hover:ring-brand"
+          className="flex items-center gap-1.5 rounded-md bg-raised px-2 py-1 text-xs font-semibold ring-1 ring-line hover:ring-brand"
         >
           {token && pool ? (
             <>
@@ -78,7 +78,7 @@ export function MarketBar() {
               <span>
                 {token.symbol}-{pool.quote.symbol}
               </span>
-              <span className="rounded bg-overlay px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
+              <span className="rounded bg-overlay px-1 py-px text-[9px] font-medium uppercase tracking-wide text-muted">
                 {pool.market.label}
               </span>
             </>
@@ -90,21 +90,21 @@ export function MarketBar() {
         {open && <MarketDropdown favs={favs} onPicked={() => setOpen(false)} />}
       </div>
 
-      <span className="h-5 w-px bg-line" aria-hidden />
+      <span className="h-4 w-px bg-line" aria-hidden />
 
       {/* favorites */}
       <button
         onClick={toggleFav}
         disabled={!token}
         title={isFav ? "Remove from favorites" : "Add to favorites"}
-        className={`text-base leading-none ${isFav ? "text-warn" : "text-muted hover:text-warn"} disabled:opacity-30`}
+        className={`text-sm leading-none ${isFav ? "text-warn" : "text-muted hover:text-warn"} disabled:opacity-30`}
       >
         {isFav ? "★" : "☆"}
       </button>
       {favs.length === 0 ? (
-        <span className="text-sm text-muted">Star markets you trade often</span>
+        <span className="text-xs text-muted">Star markets you trade often</span>
       ) : (
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="flex items-center gap-1 overflow-x-auto">
           {favs.map((f) => {
             const m = favToMarket(f);
             if (!m) return null;
@@ -113,7 +113,7 @@ export function MarketBar() {
               <button
                 key={f.token.address}
                 onClick={() => setMarket(m.token, m.pool)}
-                className={`whitespace-nowrap rounded px-2 py-1 text-xs ${
+                className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] ${
                   current ? "bg-overlay text-fg" : "text-muted hover:bg-raised hover:text-fg"
                 }`}
               >
@@ -146,23 +146,23 @@ function MarketDropdown({ favs, onPicked }: { favs: FavEntry[]; onPicked: () => 
   };
 
   return (
-    <div className="absolute left-0 top-full z-30 mt-1.5 w-[26rem] rounded-lg border border-line bg-overlay p-2 shadow-2xl">
+    <div className="absolute left-0 top-full z-30 mt-1 w-96 rounded-md border border-line bg-overlay p-1.5 shadow-2xl">
       <input
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Paste any Monad token address (0x…)"
         spellCheck={false}
-        className="w-full rounded-md border border-line bg-raised px-3 py-2 text-sm outline-none placeholder:text-muted focus:border-brand"
+        className="w-full rounded border border-line bg-raised px-2 py-1.5 text-xs outline-none placeholder:text-muted focus:border-brand"
       />
       {query && (
-        <div className="mt-1 text-sm">
-          {isFetching && <div className="px-3 py-2 text-muted">Looking up…</div>}
-          {error && <div className="px-3 py-2 text-down">{(error as Error).message}</div>}
+        <div className="mt-1 text-xs">
+          {isFetching && <div className="px-2 py-1.5 text-muted">Looking up…</div>}
+          {error && <div className="px-2 py-1.5 text-down">{(error as Error).message}</div>}
           {data && (
             <button
               onClick={select}
-              className="flex w-full items-center justify-between rounded px-3 py-2 hover:bg-raised"
+              className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-raised"
             >
               <span className="flex items-center gap-2">
                 <TokenAvatar symbol={data.token.symbol} />
@@ -191,7 +191,7 @@ function MarketDropdown({ favs, onPicked }: { favs: FavEntry[]; onPicked: () => 
                   setMarket(m.token, m.pool);
                   onPicked();
                 }}
-                className="flex w-full items-center justify-between rounded px-3 py-2 text-sm hover:bg-raised"
+                className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs hover:bg-raised"
               >
                 <span className="flex items-center gap-2">
                   <TokenAvatar symbol={f.token.symbol} />
@@ -204,7 +204,7 @@ function MarketDropdown({ favs, onPicked }: { favs: FavEntry[]; onPicked: () => 
         </div>
       )}
       {!query && favs.length === 0 && (
-        <div className="px-3 py-2 text-xs text-muted">
+        <div className="px-2 py-1.5 text-[11px] text-muted">
           Any token with a pool on {MARKETS.map((m) => m.label).join(", ")} works.
         </div>
       )}
@@ -214,7 +214,7 @@ function MarketDropdown({ favs, onPicked }: { favs: FavEntry[]; onPicked: () => 
 
 function TokenAvatar({ symbol }: { symbol: string }) {
   return (
-    <span className="flex size-5 items-center justify-center rounded-full bg-overlay text-[10px] font-bold text-brand ring-1 ring-line">
+    <span className="flex size-4 items-center justify-center rounded-full bg-overlay text-[9px] font-bold text-brand ring-1 ring-line">
       {symbol.slice(0, 1).toUpperCase()}
     </span>
   );
