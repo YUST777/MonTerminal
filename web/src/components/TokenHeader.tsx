@@ -1,18 +1,18 @@
-import { useLivePrice, usePoolStats, useTokenMedia } from "../hooks/market.ts";
+import { useLivePrice, usePoolStats } from "../hooks/market.ts";
 import { fmtPct, fmtPrice, fmtUsd, shortAddr } from "../lib/format.ts";
 import { useTerminal } from "../state/terminal.ts";
-import { TokenIcon } from "./TokenIcon.tsx";
 
 /**
- * Stats strip below the market bar: token icon + big USD price + 24H change,
- * then divider-separated inline stats — pool price, volume, liquidity, FDV.
- * On-chain slot0 drives the quote price (same source the contract reads).
+ * Stats strip below the market bar: big USD price + 24H change, then
+ * divider-separated inline stats — pool price, volume, liquidity, FDV.
+ * The token itself is named by the market selector right above, so no
+ * icon/symbol here. On-chain slot0 drives the quote price (same source
+ * the contract reads).
  */
 export function TokenHeader() {
   const { token, pool } = useTerminal();
   const { data: live } = useLivePrice(pool, token);
   const { data: stats } = usePoolStats(pool);
-  const { data: media } = useTokenMedia(token?.address);
 
   if (!token || !pool) return null;
   const chg = stats?.change24hPct;
@@ -20,10 +20,6 @@ export function TokenHeader() {
 
   return (
     <div className="flex h-8 items-center gap-3 overflow-x-auto border-b border-line bg-bg px-3 whitespace-nowrap">
-      <span className="flex items-center gap-1.5">
-        <TokenIcon url={media?.icon} symbol={token.symbol} size="size-5" />
-        <span className="text-[13px] font-semibold">{token.symbol}</span>
-      </span>
       <span className="text-[15px] font-semibold tabular-nums">
         {stats?.priceUsd != null ? fmtUsd(stats.priceUsd) : "…"}
       </span>
