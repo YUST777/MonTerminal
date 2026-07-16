@@ -18,6 +18,11 @@ export const monad = defineChain({
   blockExplorers: {
     default: { name: "MonadScan", url: "https://monadscan.com" },
   },
+  contracts: {
+    multicall3: {
+      address: "0xcA11bde05977b3631167028862bE2a173976CA11",
+    },
+  },
 });
 
 export const RPC_URLS = [...monad.rpcUrls.default.http];
