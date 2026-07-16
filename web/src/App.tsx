@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { BridgeModal } from "./components/BridgeModal.tsx";
+import { BridgePage } from "./components/bridge/BridgePage.tsx";
 import { HomePage } from "./components/home/HomePage.tsx";
 import { KlineChart } from "./components/KlineChart.tsx";
 import { MarketBar } from "./components/MarketBar.tsx";
@@ -13,10 +12,11 @@ import { TokenHeader } from "./components/TokenHeader.tsx";
 import { TopNav } from "./components/TopNav.tsx";
 import { useTerminal } from "./state/terminal.ts";
 import { useUrlMarketSync } from "./hooks/market.ts";
+import { usePathname } from "./lib/router.ts";
 
 export default function App() {
   const { token } = useTerminal();
-  const [bridgeOpen, setBridgeOpen] = useState(false);
+  const path = usePathname();
   // /token/monad/0x… deep links ↔ selected market; true while a deep link is
   // still resolving on first load — show a boot loader, never flash the home page.
   const booting = useUrlMarketSync();
@@ -33,16 +33,20 @@ export default function App() {
     );
   }
 
+  const onBridge = path === "/bridge";
+
   return (
     <div className="flex h-screen flex-col bg-bg text-fg">
       <NetworkGuard />
-      <TopNav onBridge={() => setBridgeOpen(true)} />
-      <MarketBar />
-      <TokenHeader />
+      <TopNav />
+      {!onBridge && <MarketBar />}
+      {!onBridge && <TokenHeader />}
 
       {/* main */}
       <div className="min-h-0 flex-1">
-        {token ? (
+        {onBridge ? (
+          <BridgePage />
+        ) : token ? (
           <PanelGroup direction="horizontal">
             <Panel defaultSize={77} minSize={50}>
               <PanelGroup direction="vertical">
@@ -72,7 +76,6 @@ export default function App() {
         )}
       </div>
 
-      {bridgeOpen && <BridgeModal onClose={() => setBridgeOpen(false)} />}
       <Toasts />
     </div>
   );

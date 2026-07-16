@@ -15,6 +15,7 @@ import {
   type TopPool,
 } from "../lib/gecko.ts";
 import { buildDepth } from "../lib/depth.ts";
+import { replacePath } from "../lib/router.ts";
 import { fetchPairsMedia, fetchTokenMedia } from "../lib/dexscreener.ts";
 import { useTerminal, type PoolInfo, type TokenMeta } from "../state/terminal.ts";
 
@@ -287,14 +288,15 @@ export function useUrlMarketSync(): boolean {
     }
     lookupMarket(client, m[1] as Address)
       .then((r) => setMarket(r.token, r.pool))
-      .catch(() => window.history.replaceState(null, "", "/"))
+      .catch(() => replacePath("/"))
       .finally(() => setResolving(false));
   }, [client, setMarket]);
 
   useEffect(() => {
     if (!token) return;
-    const url = `/token/monad/${token.address.toLowerCase()}`;
-    if (window.location.pathname !== url) window.history.replaceState(null, "", url);
+    // Fires only when the selected market changes — picking a token anywhere
+    // (incl. on /bridge) lands you on its terminal URL.
+    replacePath(`/token/monad/${token.address.toLowerCase()}`);
   }, [token]);
 
   return resolving;

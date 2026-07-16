@@ -2,24 +2,36 @@ import { useEffect, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { MARKETS } from "@monolimit/shared";
 import { shortAddr } from "../lib/format.ts";
+import { navigate, usePathname } from "../lib/router.ts";
+import { useTerminal } from "../state/terminal.ts";
 
 const EXPLORER = "https://monadscan.com/address/";
 
 /** Terminal-style top bar: logo · nav tabs · wallet / settings. */
-export function TopNav({ onBridge }: { onBridge: () => void }) {
+export function TopNav() {
+  const path = usePathname();
+  const token = useTerminal((s) => s.token);
+  const onBridge = path === "/bridge";
+  // "Spot" returns to the selected market if there is one, else home.
+  const spotPath = token ? `/token/monad/${token.address.toLowerCase()}` : "/";
+
   return (
     <header className="flex h-11 items-center gap-5 border-b border-line bg-bg px-3">
       {/* logo — text-only wordmark */}
-      <a href="/" className="flex items-center">
+      <button onClick={() => navigate(spotPath)} className="flex items-center">
         <span className="text-[15px] font-bold tracking-tight">
           MONO<span className="monad-gradient-text">LIMIT</span>
         </span>
-      </a>
+      </button>
 
       {/* primary nav */}
       <nav className="flex items-center gap-0.5 text-[13px]">
-        <NavItem active>Spot</NavItem>
-        <NavItem onClick={onBridge}>Bridge</NavItem>
+        <NavItem active={!onBridge} onClick={() => navigate(spotPath)}>
+          Spot
+        </NavItem>
+        <NavItem active={onBridge} onClick={() => navigate("/bridge")}>
+          Bridge
+        </NavItem>
         <span className="mx-2 h-4 w-px bg-line" aria-hidden />
         <NavItem soon>Perp</NavItem>
         <NavItem soon>Vaults</NavItem>
