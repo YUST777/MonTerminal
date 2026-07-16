@@ -21,6 +21,10 @@ export function KlineChart() {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    // Guard against stale instances surviving HMR/StrictMode remounts —
+    // klinecharts appends to the container, so wipe anything already there.
+    dispose(el);
+    el.innerHTML = "";
     const chart = init(el, {
       styles: {
         grid: {
