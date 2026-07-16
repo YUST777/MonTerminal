@@ -116,12 +116,12 @@ export function TokenSelectModal({
       onClick={onClose}
     >
       <div
-        className="w-[480px] max-w-[calc(100vw-2rem)] rounded-3xl border border-line bg-raised p-5 shadow-2xl"
+        className="w-[920px] max-w-[calc(100vw-2rem)] rounded-[28px] border border-line bg-raised p-8 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center gap-4">
-          <span className="shrink-0 text-base font-semibold">Select a token</span>
-          <div className="flex flex-1 items-center gap-2 rounded-full bg-bg/60 px-3.5 py-2 ring-1 ring-line focus-within:ring-brand">
+        <div className="mb-7 flex items-center gap-6">
+          <span className="shrink-0 text-2xl font-semibold">Select a token</span>
+          <div className="flex flex-1 items-center gap-3 rounded-full bg-bg/60 px-5 py-3 ring-1 ring-line focus-within:ring-brand">
             <SearchGlyph />
             <input
               autoFocus
@@ -129,39 +129,42 @@ export function TokenSelectModal({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search tokens"
               spellCheck={false}
-              className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
+              className="w-full bg-transparent text-base outline-none placeholder:text-muted"
             />
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-overlay text-muted transition-colors hover:text-fg"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-overlay text-muted transition-colors hover:text-fg"
           >
             <CloseGlyph />
           </button>
         </div>
 
         {/* chain strip — pick the origin network */}
-        <div className="mb-4 flex items-center gap-2">
+        <div className="mb-7 flex items-center gap-3">
           {BRIDGE_ORIGINS.map((c) => (
             <button
               key={c.id}
               title={c.name}
               onClick={() => setActiveChain(c)}
-              className={`flex items-center justify-center rounded-xl p-2 transition-colors ${
+              className={`flex items-center justify-center rounded-2xl px-5 py-3.5 transition-colors ${
                 activeChain.id === c.id
                   ? "bg-brand/10 ring-1 ring-brand/70"
                   : "bg-overlay/40 ring-1 ring-transparent hover:bg-overlay hover:ring-line"
               }`}
             >
-              <ChainIcon chain={c} size="size-7" />
+              <ChainIcon chain={c} size="size-8" />
             </button>
           ))}
-          <span className="ml-auto truncate text-xs text-muted">{activeChain.name}</span>
+          <span className="ml-auto flex flex-col items-center gap-1.5">
+            <span className="truncate text-base font-medium">{activeChain.name}</span>
+            <span className="h-0.5 w-7 rounded-full bg-brand" />
+          </span>
         </div>
 
         {/* token grid */}
-        <div className="grid max-h-[340px] grid-cols-2 gap-2.5 overflow-y-auto">
+        <div className="grid max-h-[440px] grid-cols-2 gap-4 overflow-y-auto">
           {tokens.map((t) => (
             <TokenCard
               key={t.address + t.symbol}
@@ -173,7 +176,7 @@ export function TokenSelectModal({
           ))}
         </div>
         {tokens.length === 0 && (
-          <div className="py-3 text-center text-xs text-muted">
+          <div className="py-4 text-center text-sm text-muted">
             No token matches "{query}"
           </div>
         )}
@@ -204,18 +207,18 @@ function TokenCard({
   return (
     <button
       onClick={onPick}
-      className={`flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left transition-colors ${
+      className={`flex items-center gap-4 rounded-2xl px-5 py-4 text-left transition-colors ${
         active
           ? "bg-brand/5 ring-1 ring-brand/70"
           : "bg-overlay/40 ring-1 ring-transparent hover:bg-overlay hover:ring-line"
       }`}
     >
-      <TokenImg token={token} size="size-8" />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-semibold leading-tight">{token.symbol}</span>
-        <span className="truncate text-[11px] text-muted">{token.name}</span>
+      <TokenImg token={token} size="size-12" />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-xl font-semibold leading-tight">{token.symbol}</span>
+        <span className="truncate text-sm text-muted">{token.name}</span>
       </span>
-      <span className="shrink-0 text-xs tabular-nums text-muted">
+      <span className="shrink-0 text-lg tabular-nums text-muted">
         {val != null ? val.toFixed(4) : ""}
       </span>
       {active && <CheckGlyph />}
@@ -227,7 +230,7 @@ function TokenCard({
 
 function SearchGlyph() {
   return (
-    <svg viewBox="0 0 16 16" className="size-4 shrink-0 text-muted" fill="none" aria-hidden>
+    <svg viewBox="0 0 16 16" className="size-5 shrink-0 text-muted" fill="none" aria-hidden>
       <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
       <path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
@@ -244,7 +247,7 @@ function CloseGlyph() {
 
 function CheckGlyph() {
   return (
-    <svg viewBox="0 0 16 16" className="size-4 shrink-0 text-brand" fill="none" aria-hidden>
+    <svg viewBox="0 0 16 16" className="size-6 shrink-0 text-brand" fill="none" aria-hidden>
       <path
         d="m3 8.5 3.5 3.5L13 5"
         stroke="currentColor"
