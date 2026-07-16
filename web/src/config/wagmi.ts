@@ -12,14 +12,16 @@ export const wagmiConfig = getDefaultConfig({
   // WalletConnect cloud id — public identifier, fine to ship in a client bundle.
   projectId: import.meta.env.VITE_WC_PROJECT_ID ?? "monolimit-dev",
   chains: [monad, ...BRIDGE_ORIGINS],
+  // viem's default public RPCs (eth.merkle.io & co.) reject browser CORS —
+  // publicnode endpoints allow it, so ENS lookups + bridge quoting stay quiet.
   transports: {
     [monad.id]: fallback(RPC_URLS.map((u) => http(u))),
-    [mainnet.id]: http(),
-    [base.id]: http(),
-    [arbitrum.id]: http(),
-    [optimism.id]: http(),
-    [bsc.id]: http(),
-    [polygon.id]: http(),
+    [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
+    [base.id]: http("https://base-rpc.publicnode.com"),
+    [arbitrum.id]: http("https://arbitrum-one-rpc.publicnode.com"),
+    [optimism.id]: http("https://optimism-rpc.publicnode.com"),
+    [bsc.id]: http("https://bsc-rpc.publicnode.com"),
+    [polygon.id]: http("https://polygon-bor-rpc.publicnode.com"),
   },
 });
 

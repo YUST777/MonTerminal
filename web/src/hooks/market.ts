@@ -25,6 +25,15 @@ export interface MarketLookup {
   pool: PoolInfo;
 }
 
+/** "capricorn-monad" → "Capricorn" — for human-readable lookup errors. */
+function prettyDex(id: string) {
+  return id
+    .replace(/-monad$/, "")
+    .split("-")
+    .map((w) => w[0]!.toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 /**
  * Paste-an-address token lookup. The book executes on Uniswap v3, but meme
  * coins pool against anything (USDC, WMON, CHOG…) — so we ask GeckoTerminal
@@ -41,19 +50,38 @@ export function useMarketLookup(rawQuery: string) {
     retry: 1,
     queryFn: async (): Promise<MarketLookup> => {
       const address = query as Address;
-      const [symbol, name, decimals] = await client!.multicall({
-        contracts: [
-          { address, abi: erc20Abi, functionName: "symbol" },
-          { address, abi: erc20Abi, functionName: "name" },
-          { address, abi: erc20Abi, functionName: "decimals" },
-        ],
-        allowFailure: false,
-      });
 
-      const poolAddress = (await geckoV3Pool(address)) ?? (await factoryScan(address));
-      if (!poolAddress) {
+      // Not a contract at all → clearest possible message before any ABI call.
+      const code = await client!.getCode({ address });
+      if (!code || code === "0x") {
         throw new Error(
-          `${symbol} has no Uniswap v3 pool on Monad — the book can only execute on Uniswap v3`,
+          "No contract at this address on Monad — did you paste a wallet address, or a token from another chain?",
+        );
+      }
+
+      let symbol: string, name: string, decimals: number;
+      try {
+        [symbol, name, decimals] = await client!.multicall({
+          contracts: [
+            { address, abi: erc20Abi, functionName: "symbol" },
+            { address, abi: erc20Abi, functionName: "name" },
+            { address, abi: erc20Abi, functionName: "decimals" },
+          ],
+          allowFailure: false,
+        });
+      } catch {
+        throw new Error("This contract isn't a standard ERC-20 token");
+      }
+
+      const gecko = await fetchTokenPools(address).catch(() => []);
+      const v3 = gecko.find((p) => p.dexId === "uniswap-v3-monad");
+      const poolAddress = v3 ? (v3.address as Address) : await factoryScan(address);
+      if (!poolAddress) {
+        const elsewhere = gecko[0];
+        throw new Error(
+          elsewhere
+            ? `${symbol} only trades on ${prettyDex(elsewhere.dexId)} ($${Math.round(elsewhere.reserveUsd).toLocaleString()} liq) — MonoLimit executes through Uniswap v3, and ${symbol} has no v3 pool`
+            : `${symbol} has no Uniswap v3 pool on Monad — the book can only execute on Uniswap v3`,
         );
       }
 
@@ -87,17 +115,6 @@ export function useMarketLookup(rawQuery: string) {
       };
     },
   });
-
-  /** Deepest uniswap-v3 pool for the token, per GeckoTerminal. */
-  async function geckoV3Pool(token: Address): Promise<Address | null> {
-    try {
-      const pools = await fetchTokenPools(token);
-      const v3 = pools.find((p) => p.dexId === "uniswap-v3-monad");
-      return v3 ? (v3.address as Address) : null;
-    } catch {
-      return null; // gecko down → fall through to on-chain scan
-    }
-  }
 
   /** On-chain fallback: TOKEN vs {WMON, USDC} across all fee tiers, deepest wins. */
   async function factoryScan(token: Address): Promise<Address | null> {
