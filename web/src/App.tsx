@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { BridgeModal } from "./components/BridgeModal.tsx";
+import { HomePage } from "./components/home/HomePage.tsx";
 import { KlineChart } from "./components/KlineChart.tsx";
 import { MarketBar } from "./components/MarketBar.tsx";
 import { NetworkGuard } from "./components/NetworkGuard.tsx";
@@ -53,15 +54,7 @@ export default function App() {
             </Panel>
           </PanelGroup>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3">
-            <div className="text-2xl font-bold">
-              MONO<span className="text-brand">LIMIT</span>
-            </div>
-            <p className="max-w-sm text-center text-sm text-muted">
-              Non-custodial stop-losses, take-profits and sell ladders on Monad. Open the market
-              selector above and paste any token address.
-            </p>
-          </div>
+          <HomePage />
         )}
       </div>
 
