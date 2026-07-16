@@ -187,13 +187,13 @@ function parsePoolRow(p: any, included?: IncludedMap): TopPool | null {
   };
 }
 
-/** Top Monad pools by 24h volume — feeds the market-select table + home page. */
-export async function fetchTopPools(pages = 2): Promise<TopPool[]> {
+/** Fetch + dedupe N pages of a gecko pool-list endpoint. */
+async function fetchPoolPages(path: string, pages: number): Promise<TopPool[]> {
   const results = await Promise.all(
     Array.from({ length: pages }, (_, i) =>
-      fetch(
-        `${BASE}/networks/monad/pools?page=${i + 1}&sort=h24_volume_usd_desc&include=base_token`,
-      ).then((r) => (r.ok ? r.json() : { data: [] })),
+      fetch(`${BASE}${path}page=${i + 1}&include=base_token`).then((r) =>
+        r.ok ? r.json() : { data: [] },
+      ),
     ),
   );
   const seen = new Set<string>();
@@ -210,6 +210,11 @@ export async function fetchTopPools(pages = 2): Promise<TopPool[]> {
   return out;
 }
 
+/** Top Monad pools by 24h volume — feeds the market-select table + home page. */
+export async function fetchTopPools(pages = 5): Promise<TopPool[]> {
+  return fetchPoolPages("/networks/monad/pools?sort=h24_volume_usd_desc&", pages);
+}
+
 /** GeckoTerminal's trending Monad pools (24h window) — home "Trending" tab. */
 export async function fetchTrendingPools(): Promise<TopPool[]> {
   const res = await fetch(`${BASE}/networks/monad/trending_pools?include=base_token&duration=24h`);
@@ -222,12 +227,6 @@ export async function fetchTrendingPools(): Promise<TopPool[]> {
 }
 
 /** Freshly created Monad pools — home "New pairs" tab. */
-export async function fetchNewPools(): Promise<TopPool[]> {
-  const res = await fetch(`${BASE}/networks/monad/new_pools?include=base_token`);
-  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
-  const json = await res.json();
-  const included = buildIncluded(json);
-  return ((json?.data ?? []) as any[])
-    .map((p) => parsePoolRow(p, included))
-    .filter((p): p is TopPool => p !== null);
+export async function fetchNewPools(pages = 3): Promise<TopPool[]> {
+  return fetchPoolPages("/networks/monad/new_pools?", pages);
 }

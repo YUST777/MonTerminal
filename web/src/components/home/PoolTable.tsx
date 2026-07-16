@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { usePublicClient } from "wagmi";
+import { isAddress, type Address } from "viem";
 import { MARKETS } from "@monolimit/shared";
-import { lookupTopPool, usePairsMedia } from "../../hooks/market.ts";
+import { lookupMarket, lookupTopPool, usePairsMedia } from "../../hooks/market.ts";
 import type { TopPool } from "../../lib/gecko.ts";
 import { fmtAge, fmtAmountNum, fmtPct, fmtUsd, shortAddr } from "../../lib/format.ts";
 import { useTerminal } from "../../state/terminal.ts";
@@ -24,7 +25,13 @@ export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; lo
     if (!client || resolving) return;
     setResolving(p.address);
     try {
-      const r = await lookupTopPool(client, p);
+      // Pools on a DEX with a MonoLimit book open directly; anything else
+      // (nad.fun & co.) resolves through the token's deepest supported pool.
+      const supported = MARKETS.some((m) => m.dexId === p.dexId);
+      const r =
+        supported || !isAddress(p.baseToken)
+          ? await lookupTopPool(client, p)
+          : await lookupMarket(client, p.baseToken as Address);
       setMarket(r.token, r.pool);
     } catch (err) {
       push("error", (err as Error).message.slice(0, 140));
@@ -81,7 +88,9 @@ export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; lo
                   <span className="flex items-center gap-1.5 text-[10px] text-muted">
                     <span>{shortAddr(p.baseToken)}</span>
                     <span className="rounded bg-overlay px-1 py-px text-[8px] font-medium uppercase">
-                      {market?.label.split(" ")[0]}
+                      {(market?.label ?? p.dexId.replace(/-monad$/, "").replace(/-/g, " ")).split(
+                        " ",
+                      )[0] || "?"}
                     </span>
                   </span>
                 </span>

@@ -198,7 +198,11 @@ export function useMarketLookup(rawQuery: string) {
   });
 }
 
-/** Top Monad pools by 24h volume, filtered to DEXes MonoLimit has a book on. */
+/**
+ * Top Monad pools by 24h volume — every DEX gecko indexes, not just the ones
+ * with a MonoLimit book: rows on other DEXes resolve through the token's
+ * deepest supported pool on click (see PoolTable.pick).
+ */
 export function useTopPools(enabled: boolean) {
   return useQuery({
     queryKey: ["top-pools"],
@@ -206,14 +210,11 @@ export function useTopPools(enabled: boolean) {
     staleTime: 60_000,
     refetchInterval: 120_000,
     placeholderData: keepPreviousData, // rows persist while a refresh is inflight
-    queryFn: async () =>
-      (await fetchTopPools()).filter((p) => MARKETS.some((m) => m.dexId === p.dexId)),
+    queryFn: () => fetchTopPools(),
   });
 }
 
-const onSupportedDex = (p: TopPool) => MARKETS.some((m) => m.dexId === p.dexId);
-
-/** GeckoTerminal trending pools on supported DEXes — home "Trending" tab. */
+/** GeckoTerminal's trending Monad pools — home "Trending" tab. */
 export function useTrendingPools(enabled: boolean) {
   return useQuery({
     queryKey: ["trending-pools"],
@@ -222,11 +223,11 @@ export function useTrendingPools(enabled: boolean) {
     refetchInterval: 60_000,
     retry: 1,
     placeholderData: keepPreviousData,
-    queryFn: async () => (await fetchTrendingPools()).filter(onSupportedDex),
+    queryFn: () => fetchTrendingPools(),
   });
 }
 
-/** Freshly created pools on supported DEXes — home "New pairs" tab. */
+/** Freshly created Monad pools — home "New pairs" tab. */
 export function useNewPools(enabled: boolean) {
   return useQuery({
     queryKey: ["new-pools"],
@@ -235,7 +236,7 @@ export function useNewPools(enabled: boolean) {
     refetchInterval: 60_000,
     retry: 1,
     placeholderData: keepPreviousData,
-    queryFn: async () => (await fetchNewPools()).filter(onSupportedDex),
+    queryFn: () => fetchNewPools(),
   });
 }
 
