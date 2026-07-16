@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { useAccount, useBalance } from "wagmi";
 import { BRIDGE_ORIGINS } from "../../config/wagmi.ts";
+import { BRIDGE_TOKENS, isNative, type BridgeToken } from "../../config/tokens.ts";
 
 export type Origin = (typeof BRIDGE_ORIGINS)[number];
 
@@ -48,20 +49,52 @@ export function ChainIcon({
   );
 }
 
+export function TokenImg({
+  token,
+  size = "size-8",
+}: {
+  token: BridgeToken;
+  size?: string;
+}) {
+  const [broken, setBroken] = useState(false);
+  if (!broken) {
+    return (
+      <img
+        src={token.logo}
+        alt=""
+        loading="lazy"
+        onError={() => setBroken(true)}
+        className={`${size} shrink-0 rounded-full object-cover`}
+      />
+    );
+  }
+  return (
+    <span
+      className={`flex ${size} shrink-0 items-center justify-center rounded-full bg-overlay text-[10px] font-bold text-brand ring-1 ring-line`}
+    >
+      {token.symbol.slice(0, 1)}
+    </span>
+  );
+}
+
 /**
- * Network picker — wide, height-hugging sheet with a 2-column grid of chain
- * cards (logo · name · your gas balance), apple-clean rounded corners.
+ * Compact token picker — Uniswap-style: a chain strip on top switches the
+ * origin network, below it every bridgeable token on that chain in a
+ * 2-col card grid with live balances.
  */
-export function ChainSelectModal({
-  selected,
+export function TokenSelectModal({
+  chain,
+  token,
   onSelect,
   onClose,
 }: {
-  selected: Origin;
-  onSelect: (c: Origin) => void;
+  chain: Origin;
+  token: BridgeToken;
+  onSelect: (chain: Origin, token: BridgeToken) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const [activeChain, setActiveChain] = useState<Origin>(chain);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -69,15 +102,13 @@ export function ChainSelectModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const rows = useMemo(() => {
+  const tokens = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return BRIDGE_ORIGINS.filter(
-      (c) =>
-        !q ||
-        c.name.toLowerCase().includes(q) ||
-        c.nativeCurrency.symbol.toLowerCase().includes(q),
+    return (BRIDGE_TOKENS[activeChain.id] ?? []).filter(
+      (t) =>
+        !q || t.symbol.toLowerCase().includes(q) || t.name.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [activeChain.id, query]);
 
   return (
     <div
@@ -85,19 +116,18 @@ export function ChainSelectModal({
       onClick={onClose}
     >
       <div
-        className="w-[560px] max-w-[calc(100vw-2rem)] rounded-3xl border border-line bg-raised p-5 shadow-2xl"
+        className="w-[480px] max-w-[calc(100vw-2rem)] rounded-3xl border border-line bg-raised p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center gap-4">
-          <span className="shrink-0 text-base font-semibold">Select a network</span>
-          {/* search inline with the title — keeps the sheet short */}
+          <span className="shrink-0 text-base font-semibold">Select a token</span>
           <div className="flex flex-1 items-center gap-2 rounded-full bg-bg/60 px-3.5 py-2 ring-1 ring-line focus-within:ring-brand">
             <SearchGlyph />
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search networks"
+              placeholder="Search tokens"
               spellCheck={false}
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
             />
@@ -111,20 +141,40 @@ export function ChainSelectModal({
           </button>
         </div>
 
-        {/* 2-col card grid — same mock layout, compact */}
-        <div className="grid grid-cols-2 gap-3">
-          {rows.map((c) => (
-            <ChainCard
+        {/* chain strip — pick the origin network */}
+        <div className="mb-4 flex items-center gap-2">
+          {BRIDGE_ORIGINS.map((c) => (
+            <button
               key={c.id}
-              chain={c}
-              active={selected.id === c.id}
-              onPick={() => onSelect(c)}
+              title={c.name}
+              onClick={() => setActiveChain(c)}
+              className={`flex items-center justify-center rounded-xl p-2 transition-colors ${
+                activeChain.id === c.id
+                  ? "bg-brand/10 ring-1 ring-brand/70"
+                  : "bg-overlay/40 ring-1 ring-transparent hover:bg-overlay hover:ring-line"
+              }`}
+            >
+              <ChainIcon chain={c} size="size-7" />
+            </button>
+          ))}
+          <span className="ml-auto truncate text-xs text-muted">{activeChain.name}</span>
+        </div>
+
+        {/* token grid */}
+        <div className="grid max-h-[340px] grid-cols-2 gap-2.5 overflow-y-auto">
+          {tokens.map((t) => (
+            <TokenCard
+              key={t.address + t.symbol}
+              chain={activeChain}
+              token={t}
+              active={activeChain.id === chain.id && t.address === token.address}
+              onPick={() => onSelect(activeChain, t)}
             />
           ))}
         </div>
-        {rows.length === 0 && (
+        {tokens.length === 0 && (
           <div className="py-3 text-center text-xs text-muted">
-            No network matches "{query}"
+            No token matches "{query}"
           </div>
         )}
       </div>
@@ -132,36 +182,41 @@ export function ChainSelectModal({
   );
 }
 
-function ChainCard({
+function TokenCard({
   chain,
+  token,
   active,
   onPick,
 }: {
   chain: Origin;
+  token: BridgeToken;
   active: boolean;
   onPick: () => void;
 }) {
   const { address } = useAccount();
-  const { data: balance } = useBalance({ address, chainId: chain.id });
+  const { data: balance } = useBalance({
+    address,
+    chainId: chain.id,
+    token: isNative(token) ? undefined : token.address,
+  });
   const val = balance ? Number(formatUnits(balance.value, balance.decimals)) : null;
 
   return (
     <button
       onClick={onPick}
-      className={`flex items-center gap-3 rounded-2xl px-3.5 py-3 text-left transition-colors ${
+      className={`flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left transition-colors ${
         active
           ? "bg-brand/5 ring-1 ring-brand/70"
           : "bg-overlay/40 ring-1 ring-transparent hover:bg-overlay hover:ring-line"
       }`}
     >
-      <ChainIcon chain={chain} size="size-9" />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold leading-tight">{chain.name}</span>
-        <span className="text-xs tabular-nums text-muted">
-          {val != null
-            ? `${val.toFixed(4)} ${chain.nativeCurrency.symbol}`
-            : chain.nativeCurrency.symbol}
-        </span>
+      <TokenImg token={token} size="size-8" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-semibold leading-tight">{token.symbol}</span>
+        <span className="truncate text-[11px] text-muted">{token.name}</span>
+      </span>
+      <span className="shrink-0 text-xs tabular-nums text-muted">
+        {val != null ? val.toFixed(4) : ""}
       </span>
       {active && <CheckGlyph />}
     </button>

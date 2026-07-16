@@ -4,9 +4,10 @@ import { useAccount, useBalance, useSwitchChain, useWalletClient } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { monad } from "@monolimit/shared";
 import { BRIDGE_ORIGINS } from "../../config/wagmi.ts";
+import { BRIDGE_TOKENS, isNative, type BridgeToken } from "../../config/tokens.ts";
 import { executeRelaySteps, getRelayQuote, NATIVE, type RelayQuote } from "../../lib/relay.ts";
 import { useToasts } from "../Toasts.tsx";
-import { ChainIcon, ChainSelectModal, type Origin } from "./ChainSelect.tsx";
+import { ChainIcon, TokenImg, TokenSelectModal, type Origin } from "./ChainSelect.tsx";
 
 /**
  * /bridge — Uniswap-style bridge: native gas token on the origin chain →
@@ -18,20 +19,25 @@ export function BridgePage() {
   const { address } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const [origin, setOrigin] = useState<Origin>(BRIDGE_ORIGINS[1]); // Base default
+  const [payToken, setPayToken] = useState<BridgeToken>(BRIDGE_TOKENS[BRIDGE_ORIGINS[1].id]![0]!);
   const [selectOpen, setSelectOpen] = useState(false);
   const [amountText, setAmountText] = useState("");
   const [quote, setQuote] = useState<RelayQuote | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const { data: originBalance } = useBalance({ address, chainId: origin.id });
+  const { data: originBalance } = useBalance({
+    address,
+    chainId: origin.id,
+    token: isNative(payToken) ? undefined : payToken.address,
+  });
   const { data: monBalance } = useBalance({ address, chainId: monad.id });
   const { data: walletClient } = useWalletClient({ chainId: origin.id });
   const push = useToasts((s) => s.push);
   const queryClient = useQueryClient();
 
-  const symbol = origin.nativeCurrency.symbol;
+  const symbol = payToken.symbol;
   const amount = (() => {
     try {
-      return parseUnits(amountText, origin.nativeCurrency.decimals);
+      return parseUnits(amountText, payToken.decimals);
     } catch {
       return 0n;
     }
@@ -49,7 +55,7 @@ export function BridgePage() {
           user: address,
           originChainId: origin.id,
           destinationChainId: monad.id,
-          originCurrency: NATIVE,
+          originCurrency: payToken.address, // zero address = native
           destinationCurrency: NATIVE, // native MON
           amount: amount.toString(),
           recipient: address,
@@ -64,7 +70,7 @@ export function BridgePage() {
     }, 500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, origin.id, amount.toString(), insufficient]);
+  }, [address, origin.id, payToken.address, amount.toString(), insufficient]);
 
   const bridge = async () => {
     if (!quote || !address) return;
@@ -122,7 +128,13 @@ export function BridgePage() {
               onClick={() => setSelectOpen(true)}
               className="flex shrink-0 items-center gap-2 rounded-full bg-overlay py-1.5 pl-1.5 pr-2.5 text-sm font-semibold ring-1 ring-line transition-colors hover:ring-brand"
             >
-              <ChainIcon chain={origin} size="size-6" />
+              <span className="relative">
+                <TokenImg token={payToken} size="size-6" />
+                {/* chain badge — which network this token lives on */}
+                <span className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-overlay">
+                  <ChainIcon chain={origin} size="size-3" />
+                </span>
+              </span>
               {symbol}
               <Chevron />
             </button>
@@ -215,10 +227,12 @@ export function BridgePage() {
       </div>
 
       {selectOpen && (
-        <ChainSelectModal
-          selected={origin}
-          onSelect={(c) => {
+        <TokenSelectModal
+          chain={origin}
+          token={payToken}
+          onSelect={(c, t) => {
             setOrigin(c);
+            setPayToken(t);
             setSelectOpen(false);
           }}
           onClose={() => setSelectOpen(false)}
