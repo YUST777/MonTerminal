@@ -48,18 +48,25 @@ export interface PoolStats {
   priceUsd: number | null;
   change24hPct: number | null;
   volume24hUsd: number | null;
+  liquidityUsd: number | null;
+  fdvUsd: number | null;
+  txns24h: number | null;
 }
 
 export async function fetchPoolStats(pool: string): Promise<PoolStats> {
   const res = await fetch(`${BASE}/networks/monad/pools/${pool}`);
   if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
   const attrs = (await res.json())?.data?.attributes ?? {};
+  const t24 = attrs.transactions?.h24;
   return {
     priceUsd: attrs.base_token_price_usd ? Number(attrs.base_token_price_usd) : null,
     change24hPct: attrs.price_change_percentage?.h24
       ? Number(attrs.price_change_percentage.h24)
       : null,
     volume24hUsd: attrs.volume_usd?.h24 ? Number(attrs.volume_usd.h24) : null,
+    liquidityUsd: attrs.reserve_in_usd ? Number(attrs.reserve_in_usd) : null,
+    fdvUsd: attrs.fdv_usd ? Number(attrs.fdv_usd) : null,
+    txns24h: t24 ? Number(t24.buys ?? 0) + Number(t24.sells ?? 0) : null,
   };
 }
 

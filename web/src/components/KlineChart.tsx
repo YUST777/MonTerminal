@@ -110,21 +110,26 @@ export function KlineChart() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex gap-1 border-b border-line bg-raised px-2 py-1">
+      <div className="flex h-9 items-center gap-0.5 border-b border-line bg-bg px-2">
         {TFS.map((t) => (
           <button
             key={t}
             onClick={() => setTf(t)}
-            className={`rounded px-2 py-0.5 text-xs ${
-              tf === t ? "bg-overlay text-brand" : "text-muted hover:text-fg"
+            className={`rounded px-2 py-1 text-xs ${
+              tf === t ? "bg-overlay font-semibold text-fg" : "text-muted hover:text-fg"
             }`}
           >
             {t}
           </button>
         ))}
-        <span className="ml-auto self-center text-[11px] text-muted">
-          data: GeckoTerminal · price lines = your live triggers
-        </span>
+        <span className="mx-2 h-4 w-px bg-line" aria-hidden />
+        <span className="text-xs font-medium">Candles</span>
+        <div className="ml-auto flex items-center gap-3 text-xs">
+          <span className="border-b-2 border-brand px-1 pb-0.5 font-medium">Chart</span>
+          <span className="text-muted">
+            data: GeckoTerminal · price lines = your live triggers
+          </span>
+        </div>
       </div>
       <div ref={containerRef} className="min-h-0 flex-1" />
     </div>

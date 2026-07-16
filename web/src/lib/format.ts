@@ -31,6 +31,17 @@ export function fmtPct(p: number, signed = true): string {
   return `${s}${p.toFixed(2)}%`;
 }
 
+/** $1.61B / $12.4M / $63,344 / $0.0₅123 — hypeterminal-style compact USD. */
+export function fmtUsd(v: number): string {
+  if (!Number.isFinite(v)) return "—";
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+  if (abs >= 10_000) return `$${Math.round(v).toLocaleString("en-US")}`;
+  if (abs >= 1) return `$${v.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  return `$${fmtPrice(v)}`;
+}
+
 export function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
