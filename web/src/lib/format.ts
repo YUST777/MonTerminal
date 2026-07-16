@@ -46,6 +46,23 @@ export function fmtUsd(v: number): string {
   return `$${fmtPrice(v)}`;
 }
 
+/** Pool age from a unix-seconds timestamp: "3m" / "2h" / "5d". */
+export function fmtAge(tsSec: number): string {
+  const s = Math.max(0, Math.floor(Date.now() / 1000) - tsSec);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86_400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86_400)}d`;
+}
+
+/** Exact bigint → decimal string with trailing zeros trimmed (no float loss). */
+export function formatUnitsTrimmed(raw: bigint, decimals: number): string {
+  const base = 10n ** BigInt(decimals);
+  const whole = raw / base;
+  const frac = (raw % base).toString().padStart(decimals, "0").replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : whole.toString();
+}
+
 export function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }

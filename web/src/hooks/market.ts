@@ -4,11 +4,13 @@ import { usePublicClient } from "wagmi";
 import { erc20Abi, isAddress, parseAbi, type Address } from "viem";
 import { ADDRESSES, FEE_TIERS, MARKETS, tickToExecutionPrice, type Market } from "@monolimit/shared";
 import {
+  fetchNewPools,
   fetchOhlcv,
   fetchPoolStats,
   fetchTokenPools,
   fetchTopPools,
   fetchTrades,
+  fetchTrendingPools,
   type Timeframe,
   type TopPool,
 } from "../lib/gecko.ts";
@@ -203,6 +205,30 @@ export function useTopPools(enabled: boolean) {
     refetchInterval: 120_000,
     queryFn: async () =>
       (await fetchTopPools()).filter((p) => MARKETS.some((m) => m.dexId === p.dexId)),
+  });
+}
+
+const onSupportedDex = (p: TopPool) => MARKETS.some((m) => m.dexId === p.dexId);
+
+/** GeckoTerminal trending pools on supported DEXes — home "Trending" tab. */
+export function useTrendingPools(enabled: boolean) {
+  return useQuery({
+    queryKey: ["trending-pools"],
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    queryFn: async () => (await fetchTrendingPools()).filter(onSupportedDex),
+  });
+}
+
+/** Freshly created pools on supported DEXes — home "New pairs" tab. */
+export function useNewPools(enabled: boolean) {
+  return useQuery({
+    queryKey: ["new-pools"],
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    queryFn: async () => (await fetchNewPools()).filter(onSupportedDex),
   });
 }
 

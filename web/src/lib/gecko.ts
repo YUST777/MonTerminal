@@ -133,42 +133,92 @@ export interface TopPool {
   change24hPct: number | null;
   volume24hUsd: number;
   reserveUsd: number;
+  /** base-token logo from GeckoTerminal's `include=base_token` sideload */
+  imageUrl: string | null;
+  createdAtSec: number | null;
 }
 
-/** Top Monad pools by 24h volume — feeds the market-select table. */
+/** Map of sideloaded `included` resources (base tokens) keyed by gecko id. */
+type IncludedMap = Map<string, any>;
+
+function buildIncluded(json: any): IncludedMap {
+  const map: IncludedMap = new Map();
+  for (const item of (json?.included ?? []) as any[]) {
+    if (item?.id) map.set(String(item.id), item);
+  }
+  return map;
+}
+
+/** One gecko pool row → TopPool (shared by top / trending / new fetchers). */
+function parsePoolRow(p: any, included?: IncludedMap): TopPool | null {
+  const address = String(p.attributes?.address ?? "");
+  if (!address.startsWith("0x")) return null;
+  // name looks like "WMON / USDC 0.05%"
+  const [rawBase = "?", rawQuote = "?"] = String(p.attributes?.name ?? "").split(" / ");
+  const baseId = String(p.relationships?.base_token?.data?.id ?? "");
+  const baseAttrs = included?.get(baseId)?.attributes;
+  const image = String(baseAttrs?.image_url ?? "");
+  const created = p.attributes?.pool_created_at ? Date.parse(p.attributes.pool_created_at) : NaN;
+  return {
+    address,
+    dexId: String(p.relationships?.dex?.data?.id ?? ""),
+    baseSymbol: rawBase.trim(),
+    quoteSymbol: rawQuote.trim().replace(/\s+[\d.]+%$/, ""),
+    baseToken: baseId.replace(/^monad_/, ""),
+    priceUsd: p.attributes?.base_token_price_usd
+      ? Number(p.attributes.base_token_price_usd)
+      : null,
+    change24hPct: p.attributes?.price_change_percentage?.h24
+      ? Number(p.attributes.price_change_percentage.h24)
+      : null,
+    volume24hUsd: Number(p.attributes?.volume_usd?.h24 ?? 0),
+    reserveUsd: Number(p.attributes?.reserve_in_usd ?? 0),
+    imageUrl: image.startsWith("http") && !image.includes("missing.png") ? image : null,
+    createdAtSec: Number.isFinite(created) ? Math.floor(created / 1000) : null,
+  };
+}
+
+/** Top Monad pools by 24h volume — feeds the market-select table + home page. */
 export async function fetchTopPools(pages = 2): Promise<TopPool[]> {
   const results = await Promise.all(
     Array.from({ length: pages }, (_, i) =>
-      fetch(`${BASE}/networks/monad/pools?page=${i + 1}&sort=h24_volume_usd_desc`).then((r) =>
-        r.ok ? r.json() : { data: [] },
-      ),
+      fetch(
+        `${BASE}/networks/monad/pools?page=${i + 1}&sort=h24_volume_usd_desc&include=base_token`,
+      ).then((r) => (r.ok ? r.json() : { data: [] })),
     ),
   );
   const seen = new Set<string>();
   const out: TopPool[] = [];
   for (const json of results) {
+    const included = buildIncluded(json);
     for (const p of (json?.data ?? []) as any[]) {
-      const address = String(p.attributes?.address ?? "");
-      if (!address.startsWith("0x") || seen.has(address)) continue;
-      seen.add(address);
-      // name looks like "WMON / USDC 0.05%"
-      const [rawBase = "?", rawQuote = "?"] = String(p.attributes?.name ?? "").split(" / ");
-      out.push({
-        address,
-        dexId: String(p.relationships?.dex?.data?.id ?? ""),
-        baseSymbol: rawBase.trim(),
-        quoteSymbol: rawQuote.trim().replace(/\s+[\d.]+%$/, ""),
-        baseToken: String(p.relationships?.base_token?.data?.id ?? "").replace(/^monad_/, ""),
-        priceUsd: p.attributes?.base_token_price_usd
-          ? Number(p.attributes.base_token_price_usd)
-          : null,
-        change24hPct: p.attributes?.price_change_percentage?.h24
-          ? Number(p.attributes.price_change_percentage.h24)
-          : null,
-        volume24hUsd: Number(p.attributes?.volume_usd?.h24 ?? 0),
-        reserveUsd: Number(p.attributes?.reserve_in_usd ?? 0),
-      });
+      const row = parsePoolRow(p, included);
+      if (!row || seen.has(row.address)) continue;
+      seen.add(row.address);
+      out.push(row);
     }
   }
   return out;
+}
+
+/** GeckoTerminal's trending Monad pools (24h window) — home "Trending" tab. */
+export async function fetchTrendingPools(): Promise<TopPool[]> {
+  const res = await fetch(`${BASE}/networks/monad/trending_pools?include=base_token&duration=24h`);
+  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
+  const json = await res.json();
+  const included = buildIncluded(json);
+  return ((json?.data ?? []) as any[])
+    .map((p) => parsePoolRow(p, included))
+    .filter((p): p is TopPool => p !== null);
+}
+
+/** Freshly created Monad pools — home "New pairs" tab. */
+export async function fetchNewPools(): Promise<TopPool[]> {
+  const res = await fetch(`${BASE}/networks/monad/new_pools?include=base_token`);
+  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
+  const json = await res.json();
+  const included = buildIncluded(json);
+  return ((json?.data ?? []) as any[])
+    .map((p) => parsePoolRow(p, included))
+    .filter((p): p is TopPool => p !== null);
 }
