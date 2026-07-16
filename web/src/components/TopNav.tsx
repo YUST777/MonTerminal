@@ -32,11 +32,8 @@ export function TopNav() {
         <NavItem active={onBridge} onClick={() => navigate("/bridge")}>
           Bridge
         </NavItem>
-        <span className="mx-2 h-4 w-px bg-line" aria-hidden />
-        <NavItem soon>Perp</NavItem>
-        <NavItem soon>Vaults</NavItem>
         <NavItem soon>Portfolio</NavItem>
-        <NavItem soon>Leaderboard</NavItem>
+        <NavItem soon>Burner</NavItem>
       </nav>
 
       {/* right cluster */}
