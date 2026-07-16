@@ -5,12 +5,15 @@ import { MARKETS } from "@monolimit/shared";
 import {
   lookupTopPool,
   useMarketLookup,
+  usePairsMedia,
+  useTokenMedia,
   useTopPools,
   type MarketLookup,
 } from "../hooks/market.ts";
 import type { TopPool } from "../lib/gecko.ts";
 import { fmtPct, fmtUsd } from "../lib/format.ts";
 import { useTerminal, type PoolInfo, type TokenMeta } from "../state/terminal.ts";
+import { TokenIcon } from "./TokenIcon.tsx";
 import { useToasts } from "./Toasts.tsx";
 
 /** localStorage-persisted favorite markets (market keyed by dexId, rehydrated). */
@@ -46,6 +49,7 @@ export function MarketBar() {
   const [open, setOpen] = useState(false);
   const [favs, setFavs] = useState<FavEntry[]>(loadFavs);
   const ref = useRef<HTMLDivElement>(null);
+  const { data: tokenMedia } = useTokenMedia(token?.address);
 
   useEffect(() => {
     if (!open) return;
@@ -83,7 +87,7 @@ export function MarketBar() {
         >
           {token && pool ? (
             <>
-              <TokenAvatar symbol={token.symbol} />
+              <TokenIcon url={tokenMedia?.icon} symbol={token.symbol} size="size-4" />
               <span>
                 {token.symbol}-{pool.quote.symbol}
               </span>
@@ -155,6 +159,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
   const isAddr = isAddress(query.trim());
   const { data: lookup, isFetching, error } = useMarketLookup(query);
   const { data: pools, isLoading } = useTopPools(true);
+  const { data: media } = usePairsMedia(pools?.map((p) => p.address));
   const setMarket = useTerminal((s) => s.setMarket);
   const push = useToasts((s) => s.push);
 
@@ -248,7 +253,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
               className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-raised"
             >
               <span className="flex items-center gap-2">
-                <TokenAvatar symbol={lookup.token.symbol} />
+                <TokenIcon url={null} symbol={lookup.token.symbol} size="size-4" />
                 <span className="font-semibold">{lookup.token.symbol}</span>
                 <span className="text-muted">{lookup.token.name}</span>
               </span>
@@ -288,7 +293,11 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
               className={`${grid} w-full px-3 py-2 text-left text-[13px] hover:bg-raised disabled:opacity-60`}
             >
               <span className="flex min-w-0 items-center gap-1.5">
-                <TokenAvatar symbol={p.baseSymbol} />
+                <TokenIcon
+                  url={media?.get(p.address.toLowerCase())?.icon ?? p.imageUrl}
+                  symbol={p.baseSymbol}
+                  size="size-4"
+                />
                 <span className="truncate font-semibold">
                   {p.baseSymbol}-{p.quoteSymbol}
                 </span>
@@ -320,14 +329,6 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
         <span>Sorted by {SORT_LABEL[sort.key]}</span>
       </div>
     </div>
-  );
-}
-
-function TokenAvatar({ symbol }: { symbol: string }) {
-  return (
-    <span className="flex size-4 items-center justify-center rounded-full bg-overlay text-[9px] font-bold text-brand ring-1 ring-line">
-      {symbol.slice(0, 1).toUpperCase()}
-    </span>
   );
 }
 

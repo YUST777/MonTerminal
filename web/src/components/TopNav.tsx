@@ -9,12 +9,9 @@ const EXPLORER = "https://monadscan.com/address/";
 export function TopNav({ onBridge }: { onBridge: () => void }) {
   return (
     <header className="flex h-11 items-center gap-5 border-b border-line bg-bg px-3">
-      {/* logo block */}
-      <a href="/" className="flex items-center gap-2.5">
-        <span className="flex size-6 items-center justify-center rounded bg-raised ring-1 ring-line">
-          <LogoGlyph />
-        </span>
-        <span className="text-[13px] font-bold tracking-tight">
+      {/* logo — text-only wordmark */}
+      <a href="/" className="flex items-center">
+        <span className="text-[15px] font-bold tracking-tight">
           MONO<span className="monad-gradient-text">LIMIT</span>
         </span>
       </a>
@@ -142,27 +139,7 @@ function SettingsMenu() {
   );
 }
 
-/* inline glyphs — same mark as the favicon */
-
-function LogoGlyph() {
-  return (
-    <svg viewBox="0 0 32 32" className="size-4" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id="monoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#b2a6f7" />
-          <stop offset="1" stopColor="#6656d6" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M7 22V10l5 7 4-7 4 7 5-7v12"
-        stroke="url(#monoGrad)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+/* inline glyphs */
 
 function WalletGlyph() {
   return (

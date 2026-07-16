@@ -55,7 +55,12 @@ export function KlineChart() {
     chart?.setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     chart?.setBarSpace(10); // roomy candles like the reference
     chartRef.current = chart;
+    // klinecharts sizes its canvas once at init — track the container so
+    // panel drags and browser zoom keep the chart filling the pane.
+    const ro = new ResizeObserver(() => chart?.resize());
+    ro.observe(el);
     return () => {
+      ro.disconnect();
       dispose(el);
       chartRef.current = null;
     };

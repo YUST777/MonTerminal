@@ -1,31 +1,12 @@
 import { useState } from "react";
 import { usePublicClient } from "wagmi";
 import { MARKETS } from "@monolimit/shared";
-import { lookupTopPool } from "../../hooks/market.ts";
+import { lookupTopPool, usePairsMedia } from "../../hooks/market.ts";
 import type { TopPool } from "../../lib/gecko.ts";
 import { fmtAge, fmtPct, fmtUsd } from "../../lib/format.ts";
 import { useTerminal } from "../../state/terminal.ts";
+import { TokenIcon } from "../TokenIcon.tsx";
 import { useToasts } from "../Toasts.tsx";
-
-/** Logo with letter-avatar fallback (gecko image can 404 or be missing). */
-function TokenLogo({ url, symbol }: { url: string | null; symbol: string }) {
-  const [broken, setBroken] = useState(false);
-  if (url && !broken) {
-    return (
-      <img
-        src={url}
-        alt=""
-        onError={() => setBroken(true)}
-        className="size-6 shrink-0 rounded-full ring-1 ring-line"
-      />
-    );
-  }
-  return (
-    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-overlay text-[10px] font-bold text-brand ring-1 ring-line">
-      {symbol.slice(0, 1).toUpperCase()}
-    </span>
-  );
-}
 
 /** GMGN-style token list: click a row to open it in the trading terminal. */
 export function PoolTable({
@@ -41,6 +22,8 @@ export function PoolTable({
   const setMarket = useTerminal((s) => s.setMarket);
   const push = useToasts((s) => s.push);
   const [resolving, setResolving] = useState<string | null>(null);
+  // DexScreener icons fill the gaps in gecko's base_token sideload
+  const { data: media } = usePairsMedia(pools?.map((p) => p.address));
 
   const pick = async (p: TopPool) => {
     if (!client || resolving) return;
@@ -89,7 +72,10 @@ export function PoolTable({
               className={`${grid} w-full px-3 py-2 text-left text-[13px] hover:bg-raised disabled:opacity-60`}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <TokenLogo url={p.imageUrl} symbol={p.baseSymbol} />
+                <TokenIcon
+                  url={media?.get(p.address.toLowerCase())?.icon ?? p.imageUrl}
+                  symbol={p.baseSymbol}
+                />
                 <span className="truncate font-semibold">{p.baseSymbol}</span>
                 <span className="truncate text-[11px] text-muted">/{p.quoteSymbol}</span>
                 <span className="rounded bg-overlay px-1 py-px text-[8px] font-medium uppercase text-muted">

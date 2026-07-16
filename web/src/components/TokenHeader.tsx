@@ -1,23 +1,42 @@
-import { useLivePrice, usePoolStats } from "../hooks/market.ts";
+import { useLivePrice, usePoolStats, useTokenMedia } from "../hooks/market.ts";
 import { fmtPct, fmtPrice, fmtUsd, shortAddr } from "../lib/format.ts";
 import { useTerminal } from "../state/terminal.ts";
+import { TokenIcon } from "./TokenIcon.tsx";
 
 /**
- * Stats strip below the market bar: big USD price + 24H change, then
- * divider-separated inline stats — pool price, volume, liquidity, FDV.
- * On-chain slot0 drives the quote price (same source the contract reads).
+ * Stats strip below the market bar: token icon + big USD price + 24H change,
+ * then divider-separated inline stats — pool price, volume, liquidity, FDV.
+ * The token's DexScreener banner (when it has one) sits behind as a faded
+ * backdrop. On-chain slot0 drives the quote price (same source the contract
+ * reads).
  */
 export function TokenHeader() {
   const { token, pool } = useTerminal();
   const { data: live } = useLivePrice(pool, token);
   const { data: stats } = usePoolStats(pool);
+  const { data: media } = useTokenMedia(token?.address);
 
   if (!token || !pool) return null;
   const chg = stats?.change24hPct;
   const up = (chg ?? 0) >= 0;
 
   return (
-    <div className="flex h-8 items-center gap-3 overflow-x-auto border-b border-line bg-bg px-3 whitespace-nowrap">
+    <div className="relative border-b border-line bg-bg">
+      {media?.banner && (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center opacity-15"
+          style={{
+            backgroundImage: `url(${media.banner})`,
+            maskImage: "linear-gradient(to right, black, transparent 70%)",
+          }}
+        />
+      )}
+      <div className="relative flex h-8 items-center gap-3 overflow-x-auto px-3 whitespace-nowrap">
+      <span className="flex items-center gap-1.5">
+        <TokenIcon url={media?.icon} symbol={token.symbol} size="size-5" />
+        <span className="text-[13px] font-semibold">{token.symbol}</span>
+      </span>
       <span className="text-[15px] font-semibold tabular-nums">
         {stats?.priceUsd != null ? fmtUsd(stats.priceUsd) : "…"}
       </span>
@@ -56,6 +75,7 @@ export function TokenHeader() {
       >
         {shortAddr(token.address)} ↗
       </a>
+      </div>
     </div>
   );
 }

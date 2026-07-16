@@ -19,13 +19,13 @@ export function HomePage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-8">
+      <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-6">
         {/* hero — minimal, the table is the point */}
-        <div className="flex flex-col items-center gap-1.5">
-          <div className="text-2xl font-bold">
+        <div className="flex flex-col items-center gap-1">
+          <div className="text-xl font-bold">
             MONO<span className="text-brand">LIMIT</span>
           </div>
-          <p className="max-w-md text-center text-sm text-muted">
+          <p className="max-w-md text-center text-xs text-muted">
             Non-custodial stop-losses, take-profits and sell ladders on Monad. Pick a token below
             or paste any address in the market selector above.
           </p>

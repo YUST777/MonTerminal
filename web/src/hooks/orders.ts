@@ -40,7 +40,25 @@ export function orderKey(o: Pick<UserOrder, "book" | "orderId">) {
  * The connected maker's full order history across every market's book:
  * OrderPlaced logs filtered by maker + one getOrders multicall per book for
  * live status. Events are the contracts' only data feed — no indexer.
+ *
+ * rpc.monad.xyz caps getLogs responses (413 over wide ranges), so logs are
+ * paged in 5k-block chunks and cached per maker+book: each refetch only
+ * scans blocks that arrived since the last one.
  */
+const LOG_PAGE = 5_000n;
+
+interface LogCache {
+  nextBlock: bigint;
+  placed: PlacedLog[];
+  executed: ExecutedLog[];
+}
+type PlacedLog = { args: { orderId: bigint }; transactionHash: `0x${string}` | null };
+type ExecutedLog = {
+  args: { orderId: bigint; amountOut?: bigint; keeperFee?: bigint };
+  transactionHash: `0x${string}` | null;
+};
+const logCaches = new Map<string, LogCache>();
+
 export function useUserOrders() {
   const { address } = useAccount();
   const client = usePublicClient();
@@ -50,39 +68,61 @@ export function useUserOrders() {
     enabled: !!client && !!address,
     refetchInterval: 5_000,
     queryFn: async (): Promise<UserOrder[]> => {
-      const perBook = await Promise.all(MARKETS.map((m) => fetchBookOrders(m)));
+      const latest = await client!.getBlockNumber();
+      const perBook = await Promise.all(MARKETS.map((m) => fetchBookOrders(m, latest)));
       return perBook.flat().sort((a, b) => (b.orderId > a.orderId ? 1 : -1));
     },
   });
 
-  async function fetchBookOrders(market: Market): Promise<UserOrder[]> {
-    const placed = await client!.getContractEvents({
-      address: market.book,
-      abi: LIMIT_ORDER_BOOK_ABI,
-      eventName: "OrderPlaced",
-      args: { maker: address },
-      fromBlock: market.deployBlock,
-      strict: true,
-    });
+  /** Paged event fetch for one maker+book, appended onto the running cache. */
+  async function syncLogs(market: Market, latest: bigint): Promise<LogCache> {
+    const key = `${address}:${market.book}`;
+    const cache = logCaches.get(key) ?? {
+      nextBlock: market.deployBlock,
+      placed: [],
+      executed: [],
+    };
+    for (let start = cache.nextBlock; start <= latest; start += LOG_PAGE) {
+      const end = start + LOG_PAGE - 1n > latest ? latest : start + LOG_PAGE - 1n;
+      const [placed, executed] = await Promise.all([
+        client!.getContractEvents({
+          address: market.book,
+          abi: LIMIT_ORDER_BOOK_ABI,
+          eventName: "OrderPlaced",
+          args: { maker: address },
+          fromBlock: start,
+          toBlock: end,
+          strict: true,
+        }),
+        client!.getContractEvents({
+          address: market.book,
+          abi: LIMIT_ORDER_BOOK_ABI,
+          eventName: "OrderExecuted",
+          args: { maker: address },
+          fromBlock: start,
+          toBlock: end,
+          strict: true,
+        }),
+      ]);
+      cache.placed.push(...(placed as unknown as PlacedLog[]));
+      cache.executed.push(...(executed as unknown as ExecutedLog[]));
+      cache.nextBlock = end + 1n;
+      logCaches.set(key, cache);
+    }
+    return cache;
+  }
+
+  async function fetchBookOrders(market: Market, latest: bigint): Promise<UserOrder[]> {
+    const { placed, executed } = await syncLogs(market, latest);
     if (placed.length === 0) return [];
 
     const ids = placed.map((l) => l.args.orderId);
-    const [orders, executed] = await Promise.all([
-      client!.readContract({
-        address: market.book,
-        abi: LIMIT_ORDER_BOOK_ABI,
-        functionName: "getOrders",
-        args: [ids],
-      }),
-      client!.getContractEvents({
-        address: market.book,
-        abi: LIMIT_ORDER_BOOK_ABI,
-        eventName: "OrderExecuted",
-        args: { maker: address },
-        fromBlock: market.deployBlock,
-        strict: true,
-      }),
-    ]);
+    const orders = await client!.readContract({
+      address: market.book,
+      abi: LIMIT_ORDER_BOOK_ABI,
+      functionName: "getOrders",
+      args: [ids],
+    });
 
     const execByOrder = new Map(executed.map((l) => [l.args.orderId, l]));
     return placed.map((log, i): UserOrder => {

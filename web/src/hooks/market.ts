@@ -15,6 +15,7 @@ import {
   type TopPool,
 } from "../lib/gecko.ts";
 import { buildDepth } from "../lib/depth.ts";
+import { fetchPairsMedia, fetchTokenMedia } from "../lib/dexscreener.ts";
 import { useTerminal, type PoolInfo, type TokenMeta } from "../state/terminal.ts";
 
 type Client = NonNullable<ReturnType<typeof usePublicClient>>;
@@ -215,8 +216,9 @@ export function useTrendingPools(enabled: boolean) {
   return useQuery({
     queryKey: ["trending-pools"],
     enabled,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    retry: 1,
     queryFn: async () => (await fetchTrendingPools()).filter(onSupportedDex),
   });
 }
@@ -226,9 +228,32 @@ export function useNewPools(enabled: boolean) {
   return useQuery({
     queryKey: ["new-pools"],
     enabled,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    retry: 1,
     queryFn: async () => (await fetchNewPools()).filter(onSupportedDex),
+  });
+}
+
+/** DexScreener icons + banners for a list of pools (batched, 24h-fresh). */
+export function usePairsMedia(pools: string[] | undefined) {
+  const key = (pools ?? []).map((p) => p.toLowerCase()).sort();
+  return useQuery({
+    queryKey: ["pairs-media", key],
+    enabled: key.length > 0,
+    staleTime: 24 * 3_600_000, // token art doesn't churn
+    queryFn: () => fetchPairsMedia(key),
+  });
+}
+
+/** DexScreener icon + header banner for the selected token. */
+export function useTokenMedia(token: Address | undefined) {
+  return useQuery({
+    queryKey: ["token-media", token?.toLowerCase()],
+    enabled: !!token,
+    staleTime: 24 * 3_600_000,
+    retry: 1,
+    queryFn: () => fetchTokenMedia(token!),
   });
 }
 
