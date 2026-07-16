@@ -104,6 +104,7 @@ export function TokenSelectModal({
     queryKey: ["relay-tokens", activeChain.id],
     queryFn: () => fetchRelayTokens(activeChain.id),
     staleTime: 5 * 60_000,
+    retry: 1,
   });
 
   // Full-catalog search: any token Relay can bridge is findable by name.
@@ -112,12 +113,19 @@ export function TokenSelectModal({
     const t = setTimeout(() => setDebounced(query.trim()), 300);
     return () => clearTimeout(t);
   }, [query]);
-  const { data: searched } = useQuery({
+  const {
+    data: searched,
+    isFetching: searchLoading,
+    isError: searchFailed,
+  } = useQuery({
     queryKey: ["relay-token-search", activeChain.id, debounced],
     queryFn: () => fetchRelayTokens(activeChain.id, debounced),
     enabled: debounced.length >= 2,
     staleTime: 5 * 60_000,
+    retry: 1,
   });
+  const searching =
+    query.trim().length >= 2 && (searchLoading || debounced !== query.trim());
 
   const tokens = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -198,9 +206,23 @@ export function TokenSelectModal({
               />
             ))}
           </div>
-          {tokens.length === 0 && (
-            <div className="py-4 text-center text-sm text-muted">
-              No token matches "{query}"
+          {tokens.length === 0 &&
+            (searching ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted">
+                <Spinner /> Searching the catalog…
+              </div>
+            ) : searchFailed ? (
+              <div className="py-6 text-center text-sm text-muted">
+                Search is unreachable right now — check your connection and try again.
+              </div>
+            ) : (
+              <div className="py-6 text-center text-sm text-muted">
+                No token matches "{query}"
+              </div>
+            ))}
+          {tokens.length > 0 && searching && (
+            <div className="flex items-center justify-center gap-2 pt-3 text-xs text-muted">
+              <Spinner /> Searching the catalog…
             </div>
           )}
         </Dialog.Content>
@@ -257,6 +279,15 @@ function TokenCard({
 }
 
 /* glyphs */
+
+function Spinner() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4 shrink-0 animate-spin text-brand" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+      <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function SearchGlyph() {
   return (

@@ -1,7 +1,7 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { fallback, http } from "wagmi";
 import { arbitrum, base, bsc, mainnet, optimism, polygon } from "wagmi/chains";
-import { monad, RPC_URLS, ADDRESSES } from "@monolimit/shared";
+import { monad, ADDRESSES } from "@monolimit/shared";
 import type { Address } from "viem";
 
 /** Origin chains supported by the in-app Relay bridge. */
@@ -18,9 +18,14 @@ export const wagmiConfig = getDefaultConfig({
   // viem's default public RPCs (eth.merkle.io & co.) reject browser CORS —
   // publicnode endpoints allow it, so ENS lookups + bridge quoting stay quiet.
   transports: {
-    [monad.id]: fallback(RPC_URLS.map((u) => http(u))),
+    // Browser-curated Monad list: rpc2 rate-limits hard and rpc3 times out,
+    // so only the two healthy endpoints ship to the client.
+    [monad.id]: fallback([http("https://rpc.monad.xyz"), http("https://rpc1.monad.xyz")]),
     [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
-    [base.id]: http("https://base-rpc.publicnode.com"),
+    [base.id]: fallback([
+      http("https://base-rpc.publicnode.com"),
+      http("https://mainnet.base.org"),
+    ]),
     [arbitrum.id]: http("https://arbitrum-one-rpc.publicnode.com"),
     [optimism.id]: http("https://optimism-rpc.publicnode.com"),
     [bsc.id]: http("https://bsc-rpc.publicnode.com"),

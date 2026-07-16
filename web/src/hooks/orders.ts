@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, usePublicClient } from "wagmi";
-import type { Address } from "viem";
-import { LIMIT_ORDER_BOOK_ABI, MARKETS, type Market } from "@monolimit/shared";
+import { createPublicClient, fallback, http, type Address } from "viem";
+import { LIMIT_ORDER_BOOK_ABI, MARKETS, monad, type Market } from "@monolimit/shared";
 
 export const KIND = { TakeProfit: 0, StopLoss: 1 } as const;
 export const STATUS = { Nonexistent: 0, Open: 1, Executed: 2, Cancelled: 3 } as const;
@@ -41,11 +41,20 @@ export function orderKey(o: Pick<UserOrder, "book" | "orderId">) {
  * OrderPlaced logs filtered by maker + one getOrders multicall per book for
  * live status. Events are the contracts' only data feed — no indexer.
  *
- * rpc.monad.xyz caps getLogs responses (413 over wide ranges), so logs are
- * paged in 5k-block chunks and cached per maker+book: each refetch only
+ * rpc.monad.xyz hard-caps eth_getLogs at a 100-block range (413 / -32614),
+ * so event queries go through a dedicated client on rpc1, which serves
+ * 500k-block ranges. Results are cached per maker+book: each refetch only
  * scans blocks that arrived since the last one.
  */
-const LOG_PAGE = 5_000n;
+const LOG_PAGE = 50_000n;
+
+const logClient = createPublicClient({
+  chain: monad,
+  transport: fallback([
+    http("https://rpc1.monad.xyz", { retryCount: 3, retryDelay: 800 }),
+    http("https://rpc2.monad.xyz", { retryCount: 1 }),
+  ]),
+});
 
 interface LogCache {
   nextBlock: bigint;
@@ -84,30 +93,36 @@ export function useUserOrders() {
     };
     for (let start = cache.nextBlock; start <= latest; start += LOG_PAGE) {
       const end = start + LOG_PAGE - 1n > latest ? latest : start + LOG_PAGE - 1n;
-      const [placed, executed] = await Promise.all([
-        client!.getContractEvents({
-          address: market.book,
-          abi: LIMIT_ORDER_BOOK_ABI,
-          eventName: "OrderPlaced",
-          args: { maker: address },
-          fromBlock: start,
-          toBlock: end,
-          strict: true,
-        }),
-        client!.getContractEvents({
-          address: market.book,
-          abi: LIMIT_ORDER_BOOK_ABI,
-          eventName: "OrderExecuted",
-          args: { maker: address },
-          fromBlock: start,
-          toBlock: end,
-          strict: true,
-        }),
-      ]);
-      cache.placed.push(...(placed as unknown as PlacedLog[]));
-      cache.executed.push(...(executed as unknown as ExecutedLog[]));
-      cache.nextBlock = end + 1n;
-      logCaches.set(key, cache);
+      try {
+        const [placed, executed] = await Promise.all([
+          logClient.getContractEvents({
+            address: market.book,
+            abi: LIMIT_ORDER_BOOK_ABI,
+            eventName: "OrderPlaced",
+            args: { maker: address },
+            fromBlock: start,
+            toBlock: end,
+            strict: true,
+          }),
+          logClient.getContractEvents({
+            address: market.book,
+            abi: LIMIT_ORDER_BOOK_ABI,
+            eventName: "OrderExecuted",
+            args: { maker: address },
+            fromBlock: start,
+            toBlock: end,
+            strict: true,
+          }),
+        ]);
+        cache.placed.push(...(placed as unknown as PlacedLog[]));
+        cache.executed.push(...(executed as unknown as ExecutedLog[]));
+        cache.nextBlock = end + 1n;
+        logCaches.set(key, cache);
+      } catch {
+        // RPC hiccup — keep what we have; the next refetch resumes from
+        // cache.nextBlock instead of hammering retries.
+        break;
+      }
     }
     return cache;
   }
