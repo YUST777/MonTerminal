@@ -85,34 +85,34 @@ export function ChainSelectModal({
       onClick={onClose}
     >
       <div
-        className="w-[560px] max-w-[calc(100vw-2rem)] rounded-3xl border border-line bg-raised p-5 shadow-2xl"
+        className="w-[760px] max-w-[calc(100vw-2rem)] rounded-3xl border border-line bg-raised p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-[15px] font-semibold">Select a network</span>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <span className="shrink-0 text-[15px] font-semibold">Select a network</span>
+          {/* search inline with the title — keeps the sheet short */}
+          <div className="flex max-w-72 flex-1 items-center gap-2 rounded-full bg-bg px-3.5 py-2 ring-1 ring-line focus-within:ring-brand">
+            <SearchGlyph />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search networks"
+              spellCheck={false}
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
+            />
+          </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex size-7 items-center justify-center rounded-full bg-overlay text-muted transition-colors hover:text-fg"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-overlay text-muted transition-colors hover:text-fg"
           >
             <CloseGlyph />
           </button>
         </div>
 
-        <div className="mb-4 flex items-center gap-2 rounded-2xl bg-bg px-3.5 py-2.5 ring-1 ring-line focus-within:ring-brand">
-          <SearchGlyph />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search networks"
-            spellCheck={false}
-            className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
-          />
-        </div>
-
-        {/* wide 2-col card grid — hugs its content, never a tall list */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* landscape 3-col card grid — wide and short, never a tall list */}
+        <div className="grid grid-cols-3 gap-2">
           {rows.map((c) => (
             <ChainCard
               key={c.id}
