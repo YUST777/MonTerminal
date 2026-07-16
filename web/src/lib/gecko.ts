@@ -92,3 +92,54 @@ export async function fetchTokenPools(token: string): Promise<GeckoPool[]> {
     .filter((p) => p.address.startsWith("0x"))
     .sort((a, b) => b.reserveUsd - a.reserveUsd);
 }
+
+export interface TopPool {
+  address: string;
+  dexId: string;
+  /** "WMON / USDC 0.05%" → symbols parsed out below. */
+  baseSymbol: string;
+  quoteSymbol: string;
+  baseToken: string; // 0x…
+  priceUsd: number | null;
+  change24hPct: number | null;
+  volume24hUsd: number;
+  reserveUsd: number;
+}
+
+/** Top Monad pools by 24h volume — feeds the market-select table. */
+export async function fetchTopPools(pages = 2): Promise<TopPool[]> {
+  const results = await Promise.all(
+    Array.from({ length: pages }, (_, i) =>
+      fetch(`${BASE}/networks/monad/pools?page=${i + 1}&sort=h24_volume_usd_desc`).then((r) =>
+        r.ok ? r.json() : { data: [] },
+      ),
+    ),
+  );
+  const seen = new Set<string>();
+  const out: TopPool[] = [];
+  for (const json of results) {
+    for (const p of (json?.data ?? []) as any[]) {
+      const address = String(p.attributes?.address ?? "");
+      if (!address.startsWith("0x") || seen.has(address)) continue;
+      seen.add(address);
+      // name looks like "WMON / USDC 0.05%"
+      const [rawBase = "?", rawQuote = "?"] = String(p.attributes?.name ?? "").split(" / ");
+      out.push({
+        address,
+        dexId: String(p.relationships?.dex?.data?.id ?? ""),
+        baseSymbol: rawBase.trim(),
+        quoteSymbol: rawQuote.trim().replace(/\s+[\d.]+%$/, ""),
+        baseToken: String(p.relationships?.base_token?.data?.id ?? "").replace(/^monad_/, ""),
+        priceUsd: p.attributes?.base_token_price_usd
+          ? Number(p.attributes.base_token_price_usd)
+          : null,
+        change24hPct: p.attributes?.price_change_percentage?.h24
+          ? Number(p.attributes.price_change_percentage.h24)
+          : null,
+        volume24hUsd: Number(p.attributes?.volume_usd?.h24 ?? 0),
+        reserveUsd: Number(p.attributes?.reserve_in_usd ?? 0),
+      });
+    }
+  }
+  return out;
+}

@@ -10,10 +10,12 @@ import { Toasts } from "./components/Toasts.tsx";
 import { TokenHeader } from "./components/TokenHeader.tsx";
 import { TopNav } from "./components/TopNav.tsx";
 import { useTerminal } from "./state/terminal.ts";
+import { useUrlMarketSync } from "./hooks/market.ts";
 
 export default function App() {
   const { token } = useTerminal();
   const [bridgeOpen, setBridgeOpen] = useState(false);
+  useUrlMarketSync(); // /token/monad/0x… deep links ↔ selected market
 
   return (
     <div className="flex h-screen flex-col bg-bg text-fg">

@@ -51,6 +51,8 @@ export function KlineChart() {
         },
       },
     });
+    // Gecko timestamps are UTC epoch — render the axis in the user's zone.
+    chart?.setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     chartRef.current = chart;
     return () => {
       dispose(el);
@@ -58,20 +60,30 @@ export function KlineChart() {
     };
   }, []);
 
-  // Feed candles
+  // Feed candles. Full reload only when the series changes (pool/timeframe);
+  // 15s refetches just patch the trailing bars so zoom/scroll are preserved.
+  const seriesKey = useRef("");
   useEffect(() => {
-    if (!chartRef.current || !candles) return;
-    chartRef.current.applyNewData(
-      candles.map((c) => ({
-        timestamp: c.timestamp * 1000,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-        volume: c.volume,
-      })),
-    );
-  }, [candles]);
+    const chart = chartRef.current;
+    if (!chart || !candles) return;
+    const mapped = candles.map((c) => ({
+      timestamp: c.timestamp * 1000,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+      volume: c.volume,
+    }));
+    const key = `${pool?.address}:${tf}`;
+    if (seriesKey.current !== key) {
+      seriesKey.current = key;
+      chart.applyNewData(mapped);
+      return;
+    }
+    const list = chart.getDataList();
+    const lastTs = list.length > 0 ? list[list.length - 1]!.timestamp : 0;
+    for (const c of mapped) if (c.timestamp >= lastTs) chart.updateData(c);
+  }, [candles, pool, tf]);
 
   // Overlay open-order trigger lines for the selected market
   useEffect(() => {
@@ -131,9 +143,6 @@ export function KlineChart() {
         <span className="text-[11px] font-medium">Candles</span>
         <div className="ml-auto flex items-center gap-2.5 text-[11px]">
           <span className="border-b border-brand px-1 pb-px font-medium">Chart</span>
-          <span className="text-muted">
-            data: GeckoTerminal · price lines = your live triggers
-          </span>
         </div>
       </div>
       <div ref={containerRef} className="min-h-0 flex-1" />
