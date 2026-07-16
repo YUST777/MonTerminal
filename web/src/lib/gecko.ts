@@ -25,9 +25,14 @@ const TF_PATH: Record<Timeframe, string> = {
   "1d": "day?aggregate=1",
 };
 
-export async function fetchOhlcv(pool: string, tf: Timeframe, limit = 300): Promise<Candle[]> {
+export async function fetchOhlcv(
+  pool: string,
+  tf: Timeframe,
+  limit = 300,
+  currency: "token" | "usd" = "token",
+): Promise<Candle[]> {
   const res = await fetch(
-    `${BASE}/networks/monad/pools/${pool}/ohlcv/${TF_PATH[tf]}&limit=${limit}&currency=token`,
+    `${BASE}/networks/monad/pools/${pool}/ohlcv/${TF_PATH[tf]}&limit=${limit}&currency=${currency}`,
   );
   if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
   const json = await res.json();

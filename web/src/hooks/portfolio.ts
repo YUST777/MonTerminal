@@ -4,7 +4,7 @@ import { erc20Abi, parseAbiItem, type Address } from "viem";
 import { ADDRESSES } from "@monolimit/shared";
 import { BRIDGE_TOKENS, NATIVE_TOKEN } from "../config/tokens.ts";
 import { fetchRelayTokens } from "../lib/relay.ts";
-import { fetchSimplePrices, fetchTopPools } from "../lib/gecko.ts";
+import { fetchOhlcv, fetchSimplePrices, fetchTopPools, type Timeframe } from "../lib/gecko.ts";
 import { logClient } from "./orders.ts";
 
 /** One held token, priced. `address` is null for native MON. */
@@ -19,7 +19,7 @@ export interface PortfolioAsset {
   priceUsd: number | null;
   change24hPct: number | null;
   valueUsd: number;
-  /** deepest gecko pool — feeds the row sparkline */
+  /** deepest gecko pool — feeds sparklines + value history */
   pool: string | null;
 }
 
@@ -173,15 +173,113 @@ export function usePortfolio() {
   });
 }
 
-export interface ActivityItem {
-  dir: "in" | "out";
+/* ------------------------------ value history ----------------------------- */
+
+export type HistoryRange = "1D" | "1W" | "1M";
+export interface HistoryPoint {
+  ts: number;
+  value: number;
+  /** MON benchmark rebased to the window's starting portfolio value */
+  bench: number | null;
+}
+
+const RANGE_CFG: Record<HistoryRange, { tf: Timeframe; limit: number }> = {
+  "1D": { tf: "15m", limit: 96 },
+  "1W": { tf: "1h", limit: 168 },
+  "1M": { tf: "4h", limit: 180 },
+};
+/** one OHLCV call per tracked asset — stay inside gecko's free rate limit */
+const HISTORY_ASSETS = 8;
+
+/**
+ * Value of the CURRENT holdings over time: each tracked asset's real USD
+ * OHLCV closes × its live balance, summed on a shared timeline (assets
+ * without an indexed pool contribute their flat current value). Benchmark is
+ * MON's price over the same window, rebased to the starting total. This is
+ * real market data — not a fabricated portfolio history.
+ */
+export function useHoldingsHistory(portfolio: Portfolio | undefined, range: HistoryRange) {
+  const { address } = useAccount();
+  const qc = useQueryClient();
+  const tracked = (portfolio?.assets ?? [])
+    .filter((a) => a.pool && a.valueUsd > 0)
+    .slice(0, HISTORY_ASSETS);
+
+  return useQuery({
+    queryKey: ["holdings-history", address, range, tracked.map((a) => a.pool).join(",")],
+    enabled: !!portfolio && tracked.length > 0,
+    staleTime: 300_000,
+    retry: 0,
+    queryFn: async (): Promise<HistoryPoint[]> => {
+      const cfg = RANGE_CFG[range];
+      const flatUsd = portfolio!.totalUsd - tracked.reduce((s, a) => s + a.valueUsd, 0);
+      const pools = await qc
+        .fetchQuery({
+          queryKey: ["top-pools"],
+          queryFn: () => fetchTopPools(),
+          staleTime: 60_000,
+        })
+        .catch(() => []);
+      const wmon = ADDRESSES.WMON.toLowerCase();
+      const benchPool = pools.find((p) => p.baseToken.toLowerCase() === wmon)?.address ?? null;
+
+      const [series, bench] = await Promise.all([
+        Promise.all(
+          tracked.map((a) => fetchOhlcv(a.pool!, cfg.tf, cfg.limit, "usd").catch(() => [])),
+        ),
+        benchPool
+          ? fetchOhlcv(benchPool, cfg.tf, cfg.limit, "usd").catch(() => [])
+          : Promise.resolve([]),
+      ]);
+
+      const tsSet = new Set<number>();
+      for (const s of series) for (const c of s) tsSet.add(c.timestamp);
+      const timeline = [...tsSet].sort((x, y) => x - y);
+      if (timeline.length < 2) return [];
+
+      const maps = series.map((s) => new Map(s.map((c) => [c.timestamp, c.close])));
+      const lastClose = series.map((s) => s[0]?.close ?? 0);
+      const benchMap = new Map(bench.map((c) => [c.timestamp, c.close]));
+      let benchLast = bench[0]?.close ?? 0;
+      const bench0 = benchLast;
+
+      const raw = timeline.map((ts) => {
+        let value = flatUsd;
+        tracked.forEach((a, i) => {
+          const close = maps[i]!.get(ts);
+          if (close != null && Number.isFinite(close) && close > 0) lastClose[i] = close;
+          value += a.amount * lastClose[i]!;
+        });
+        const b = benchMap.get(ts);
+        if (b != null && Number.isFinite(b) && b > 0) benchLast = b;
+        return { ts, value, benchClose: benchLast };
+      });
+      const start = raw[0]!.value;
+      return raw.map((r) => ({
+        ts: r.ts,
+        value: r.value,
+        bench: bench0 > 0 && start > 0 ? start * (r.benchClose / bench0) : null,
+      }));
+    },
+  });
+}
+
+/* -------------------------------- activity -------------------------------- */
+
+export interface ActivityLeg {
   token: Address;
   symbol: string;
-  decimals: number;
   amount: number;
-  counterparty: Address;
+}
+
+export interface ActivityEntry {
   tx: `0x${string}`;
   tsSec: number;
+  /** a tx with transfers both in and out of the wallet is a swap */
+  kind: "swap" | "in" | "out";
+  inLeg: ActivityLeg | null;
+  outLeg: ActivityLeg | null;
+  counterparty: Address | null;
 }
 
 const TRANSFER = parseAbiItem(
@@ -189,13 +287,13 @@ const TRANSFER = parseAbiItem(
 );
 /** rpc1 serves 500k-block getLogs ranges — ~1 day of Monad blocks. */
 const ACTIVITY_RANGE = 500_000n;
-const ACTIVITY_LIMIT = 12;
+const ACTIVITY_TXS = 8;
 
 /**
- * Recent wallet activity straight from chain: every ERC-20 Transfer in/out of
- * the wallet over the last ~day (strict decoding skips ERC-721s, which share
- * the Transfer signature). Runs on the rpc1 log client — rpc.monad.xyz caps
- * getLogs at 100 blocks.
+ * Recent wallet activity straight from chain: ERC-20 Transfer logs in/out of
+ * the wallet over the last ~day, grouped per tx so swaps show both legs
+ * (strict decoding skips ERC-721s, which share the Transfer signature).
+ * Runs on the rpc1 log client — rpc.monad.xyz caps getLogs at 100 blocks.
  */
 export function useActivity() {
   const { address } = useAccount();
@@ -206,7 +304,8 @@ export function useActivity() {
     staleTime: 30_000,
     refetchInterval: 60_000,
     retry: 1,
-    queryFn: async (): Promise<ActivityItem[]> => {
+    queryFn: async (): Promise<ActivityEntry[]> => {
+      const me = address!.toLowerCase();
       const latest = await logClient.getBlockNumber();
       const fromBlock = latest > ACTIVITY_RANGE ? latest - ACTIVITY_RANGE : 0n;
       const [outgoing, incoming] = await Promise.all([
@@ -234,13 +333,21 @@ export function useActivity() {
               (x) => x.transactionHash === l.transactionHash && x.logIndex === l.logIndex,
             ) === i,
         )
-        .sort((a, b) => Number(b.blockNumber - a.blockNumber) || b.logIndex - a.logIndex)
-        .slice(0, ACTIVITY_LIMIT);
-      if (logs.length === 0) return [];
+        .sort((a, b) => Number(b.blockNumber - a.blockNumber) || b.logIndex - a.logIndex);
 
-      // token meta (skips non-ERC-20s) + block timestamps
-      const tokens = [...new Set(logs.map((l) => l.address.toLowerCase()))];
-      const blocks = [...new Set(logs.map((l) => l.blockNumber))];
+      // newest N transactions, each keeping all of its transfer legs
+      const byTx = new Map<string, typeof logs>();
+      for (const l of logs) {
+        if (!l.transactionHash) continue;
+        const group = byTx.get(l.transactionHash);
+        if (group) group.push(l);
+        else if (byTx.size < ACTIVITY_TXS) byTx.set(l.transactionHash, [l]);
+      }
+      if (byTx.size === 0) return [];
+
+      const grouped = [...byTx.values()].flat();
+      const tokens = [...new Set(grouped.map((l) => l.address.toLowerCase()))];
+      const blocks = [...new Set(grouped.map((l) => l.blockNumber))];
       const [meta, blockData] = await Promise.all([
         logClient.multicall({
           contracts: tokens.flatMap((t) => [
@@ -261,23 +368,40 @@ export function useActivity() {
       });
       const blockTs = new Map(blocks.map((b, i) => [b, Number(blockData[i]!.timestamp)]));
 
-      return logs.flatMap((l): ActivityItem[] => {
-        const m = tokenMeta.get(l.address.toLowerCase());
-        if (!m || !l.transactionHash) return [];
-        const out = l.args.from.toLowerCase() === address!.toLowerCase();
-        return [
-          {
-            dir: out ? "out" : "in",
-            token: l.address,
-            symbol: m.symbol,
-            decimals: m.decimals,
-            amount: Number(l.args.value) / 10 ** m.decimals,
-            counterparty: out ? l.args.to : l.args.from,
-            tx: l.transactionHash,
-            tsSec: blockTs.get(l.blockNumber) ?? 0,
-          },
-        ];
-      });
+      const entries: ActivityEntry[] = [];
+      for (const [tx, group] of byTx) {
+        const legs = group.flatMap((l) => {
+          const m = tokenMeta.get(l.address.toLowerCase());
+          if (!m) return [];
+          return [
+            {
+              log: l,
+              out: l.args.from.toLowerCase() === me,
+              leg: {
+                token: l.address,
+                symbol: m.symbol,
+                amount: Number(l.args.value) / 10 ** m.decimals,
+              } satisfies ActivityLeg,
+            },
+          ];
+        });
+        if (legs.length === 0) continue;
+        const biggest = (arr: typeof legs) =>
+          arr.length ? arr.reduce((a, b) => (b.leg.amount > a.leg.amount ? b : a)) : null;
+        const inn = biggest(legs.filter((l) => !l.out));
+        const out = biggest(legs.filter((l) => l.out));
+        const main = inn ?? out;
+        entries.push({
+          tx: tx as `0x${string}`,
+          tsSec: blockTs.get(group[0]!.blockNumber) ?? 0,
+          kind: inn && out ? "swap" : inn ? "in" : "out",
+          inLeg: inn?.leg ?? null,
+          outLeg: out?.leg ?? null,
+          counterparty:
+            inn && out ? null : main ? (main.out ? main.log.args.to : main.log.args.from) : null,
+        });
+      }
+      return entries;
     },
   });
 }

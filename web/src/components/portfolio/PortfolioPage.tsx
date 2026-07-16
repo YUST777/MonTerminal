@@ -1,21 +1,36 @@
 import { useState } from "react";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useActivity, usePortfolio } from "../../hooks/portfolio.ts";
+import { ADDRESSES } from "@monolimit/shared";
+import {
+  useActivity,
+  useHoldingsHistory,
+  usePortfolio,
+  type HistoryRange,
+} from "../../hooks/portfolio.ts";
 import { STATUS, useUserOrders } from "../../hooks/orders.ts";
-import { fmtPct, fmtUsd, shortAddr } from "../../lib/format.ts";
+import { fmtPct, fmtUsd } from "../../lib/format.ts";
 import { AssetsTable } from "./AssetsTable.tsx";
 import { PortfolioSide } from "./PortfolioSide.tsx";
+import { ValueChart } from "./ValueChart.tsx";
+
+const RANGES: HistoryRange[] = ["1D", "1W", "1M"];
 
 /**
  * Portfolio dashboard — every number is live: balances from a multicall over
- * the known Monad token universe, prices from GeckoTerminal, activity from
- * raw Transfer logs, open orders from the books. No mock data anywhere.
+ * the known Monad token universe, prices from GeckoTerminal, value history
+ * from real OHLCV, activity from raw Transfer logs, open orders from the
+ * books. No mock data anywhere.
  */
 export function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const [hidden, setHidden] = useState(false);
+  const [headRange, setHeadRange] = useState<HistoryRange>("1D");
+  const [perfRange, setPerfRange] = useState<HistoryRange>("1W");
   const portfolio = usePortfolio();
+  const p = portfolio.data;
+  const headHistory = useHoldingsHistory(p, headRange);
+  const perfHistory = useHoldingsHistory(p, perfRange);
   const activity = useActivity();
   const orders = useUserOrders();
 
@@ -40,98 +55,187 @@ export function PortfolioPage() {
     );
   }
 
-  const p = portfolio.data;
   const openOrders = orders.data?.filter((o) => o.status === STATUS.Open).length;
+  const executed = orders.data?.filter((o) => o.status === STATUS.Executed).length;
   const up = (p?.change24hUsd ?? 0) >= 0;
+  // live USD price per token (MON keys as WMON) — activity rows use this
+  const priceOf = new Map<string, number>();
+  for (const a of p?.assets ?? []) {
+    if (a.priceUsd == null) continue;
+    priceOf.set((a.address ?? ADDRESSES.WMON).toLowerCase(), a.priceUsd);
+  }
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-3 py-3">
-        {/* header card */}
-        <div className="rounded-md border border-line bg-raised/40 p-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">My Portfolio</span>
-            <span className="rounded bg-overlay px-1.5 py-0.5 text-[10px] text-muted">
-              {address ? shortAddr(address) : ""}
-            </span>
-            <button
-              onClick={() => setHidden((v) => !v)}
-              aria-label={hidden ? "Show values" : "Hide values"}
-              className="ml-auto flex size-6.5 items-center justify-center rounded-md border border-line text-muted hover:border-brand hover:text-fg"
-            >
-              <EyeGlyph off={hidden} />
-            </button>
-          </div>
-          <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-1">
-            {portfolio.isLoading ? (
-              <span className="skeleton h-9 w-44 rounded" />
-            ) : (
-              <span className="text-3xl font-bold tabular-nums">
-                {hidden ? "••••••" : fmtUsd(p?.totalUsd ?? 0)}
-              </span>
-            )}
-            {p && p.change24hPct != null && (
-              <span
-                className={`pb-1 text-sm font-medium tabular-nums ${up ? "text-up" : "text-down"}`}
-              >
-                {hidden ? "•••" : `${up ? "+" : "−"}${fmtUsd(Math.abs(p.change24hUsd))}`} (
-                {fmtPct(p.change24hPct)}) 24h
-              </span>
-            )}
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:max-w-md">
-            <Stat
-              label="24h P&L"
-              value={
-                p?.change24hPct == null
-                  ? "—"
-                  : hidden
-                    ? "•••"
-                    : `${up ? "+" : "−"}${fmtUsd(Math.abs(p.change24hUsd))}`
-              }
-              tone={p?.change24hPct == null ? undefined : up ? "up" : "down"}
-            />
-            <Stat label="Assets" value={p ? String(p.assets.length) : "—"} />
-            <Stat label="Open orders" value={openOrders != null ? String(openOrders) : "—"} />
-          </div>
-        </div>
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start">
+        {/* ---- left column ---- */}
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          {/* header card: value · live chart · chips + stats */}
+          <div className="rounded-xl border border-line bg-raised/40 p-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+              <div className="shrink-0 xl:w-56">
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] font-semibold">My Portfolio</span>
+                  <button
+                    onClick={() => setHidden((v) => !v)}
+                    aria-label={hidden ? "Show values" : "Hide values"}
+                    className="flex size-6 items-center justify-center rounded-md text-muted hover:bg-overlay hover:text-fg"
+                  >
+                    <EyeGlyph off={hidden} />
+                  </button>
+                </div>
+                {portfolio.isLoading ? (
+                  <span className="skeleton mt-2 block h-10 w-44 rounded" />
+                ) : (
+                  <div className="mt-1 text-[34px] font-bold leading-tight tabular-nums">
+                    {hidden ? "••••••" : fmtUsd(p?.totalUsd ?? 0)}
+                  </div>
+                )}
+                <div className="mt-0.5 flex items-center gap-1.5 text-sm">
+                  {p && p.change24hPct != null ? (
+                    <>
+                      <span className={`font-medium tabular-nums ${up ? "text-up" : "text-down"}`}>
+                        {hidden
+                          ? "•••"
+                          : `${up ? "+ " : "− "}${fmtUsd(Math.abs(p.change24hUsd))} (${fmtPct(p.change24hPct)})`}
+                      </span>
+                      <span className="text-muted">24h</span>
+                    </>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </div>
+              </div>
 
-        {/* assets + right rail */}
-        <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+              {/* live holdings-value chart */}
+              <div className="min-w-0 flex-1">
+                {headHistory.data && headHistory.data.length > 1 ? (
+                  <ValueChart
+                    points={headHistory.data}
+                    range={headRange}
+                    id="head-grad"
+                    className="h-20 w-full"
+                  />
+                ) : (
+                  <div className="skeleton h-20 w-full rounded" />
+                )}
+              </div>
+
+              <div className="flex shrink-0 flex-col items-stretch gap-4 xl:items-end">
+                <Chips value={headRange} onChange={setHeadRange} />
+                <div className="flex divide-x divide-line">
+                  <Stat
+                    label="24h P&L"
+                    value={
+                      p?.change24hPct == null
+                        ? "—"
+                        : hidden
+                          ? "•••"
+                          : `${up ? "+" : "−"}${fmtUsd(Math.abs(p.change24hUsd))}`
+                    }
+                    tone={p?.change24hPct == null ? undefined : up ? "up" : "down"}
+                  />
+                  <Stat label="Assets" value={p ? String(p.assets.length) : "—"} />
+                  <Stat
+                    label="Open Orders"
+                    value={openOrders != null ? String(openOrders) : "—"}
+                  />
+                  <Stat label="Executed" value={executed != null ? String(executed) : "—"} />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <AssetsTable
             assets={p?.assets ?? []}
             totalUsd={p?.totalUsd ?? 0}
             loading={portfolio.isLoading}
             hidden={hidden}
           />
+
+          {/* performance overview: holdings value vs MON benchmark */}
+          <div className="rounded-xl border border-line bg-raised/40 p-4">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-4">
+                <span className="text-[15px] font-semibold">Performance Overview</span>
+                <span className="flex items-center gap-1.5 text-[11px] text-muted">
+                  <span className="h-0.5 w-4 rounded bg-brand" /> Holdings Value
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-muted">
+                  <span className="h-0 w-4 border-t border-dashed border-muted" /> Benchmark (MON)
+                </span>
+              </div>
+              <Chips value={perfRange} onChange={setPerfRange} />
+            </div>
+            {perfHistory.data && perfHistory.data.length > 1 ? (
+              <ValueChart
+                points={perfHistory.data}
+                range={perfRange}
+                id="perf-grad"
+                axes
+                masked={hidden}
+                className="w-full"
+              />
+            ) : perfHistory.isLoading || portfolio.isLoading ? (
+              <div className="skeleton h-52 w-full rounded" />
+            ) : (
+              <div className="flex h-52 items-center justify-center text-xs text-muted">
+                Not enough price history for these holdings yet.
+              </div>
+            )}
+            <div className="mt-1 text-[10px] text-muted">
+              Current holdings × real GeckoTerminal price history — Monad has no balance
+              archive, so past buys/sells aren't reflected.
+            </div>
+          </div>
+        </div>
+
+        {/* ---- right rail ---- */}
+        <div className="w-full shrink-0 lg:w-[330px]">
           <PortfolioSide
             assets={p?.assets ?? []}
             totalUsd={p?.totalUsd ?? 0}
             activity={activity.data}
             activityLoading={activity.isLoading}
             hidden={hidden}
+            address={address}
+            priceOf={priceOf}
           />
-        </div>
-
-        <div className="text-center text-[10px] text-muted">
-          Balances &amp; activity read live from Monad · prices from GeckoTerminal
         </div>
       </div>
     </div>
   );
 }
 
+function Chips({ value, onChange }: { value: HistoryRange; onChange: (r: HistoryRange) => void }) {
+  return (
+    <div className="flex gap-1 self-start rounded-lg bg-overlay/60 p-0.5 xl:self-end">
+      {RANGES.map((r) => (
+        <button
+          key={r}
+          onClick={() => onChange(r)}
+          className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+            value === r ? "bg-brand text-bg" : "text-muted hover:text-fg"
+          }`}
+        >
+          {r}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "up" | "down" }) {
   return (
-    <div className="rounded-md border border-line bg-bg/40 px-2.5 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
-      <div
-        className={`mt-0.5 text-sm font-semibold tabular-nums ${
+    <div className="flex flex-col items-end gap-0.5 px-4 first:pl-0 last:pr-0">
+      <span className="whitespace-nowrap text-[11px] text-muted">{label}</span>
+      <span
+        className={`text-[15px] font-semibold tabular-nums ${
           tone === "up" ? "text-up" : tone === "down" ? "text-down" : ""
         }`}
       >
         {value}
-      </div>
+      </span>
     </div>
   );
 }
