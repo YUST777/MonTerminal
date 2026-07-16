@@ -1,6 +1,6 @@
-import { erc20Abi, maxUint256, type Address } from "viem";
+import { erc20Abi, maxUint256, parseAbi, type Address } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   applySlippageBps,
   computeTrigger,
@@ -119,6 +119,36 @@ export function usePlaceOrders(token: TokenMeta | null) {
   };
 
   return { needsApproval, approve, place, isPending, allowance };
+}
+
+const OBSERVE_ABI = parseAbi([
+  "function observe(uint32[] secondsAgos) view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)",
+]);
+
+/**
+ * Whether the pool can serve the 60s TWAP a stop-loss needs — `observe([60,0])`
+ * reverts on pools younger than a minute (the book would throw TwapUnavailable).
+ */
+export function useTwapAvailable(pool: PoolInfo | null) {
+  const client = usePublicClient();
+  return useQuery({
+    queryKey: ["twap-ok", pool?.address],
+    enabled: !!client && !!pool,
+    staleTime: 30_000,
+    queryFn: async () => {
+      try {
+        await client!.readContract({
+          address: pool!.address,
+          abi: OBSERVE_ABI,
+          functionName: "observe",
+          args: [[60, 0]],
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  });
 }
 
 export function useCancelOrders() {
