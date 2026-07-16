@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { erc20Abi, isAddress, parseAbi, type Address } from "viem";
 import { ADDRESSES, FEE_TIERS, MARKETS, tickToExecutionPrice, type Market } from "@monolimit/shared";
@@ -204,6 +204,7 @@ export function useTopPools(enabled: boolean) {
     enabled,
     staleTime: 60_000,
     refetchInterval: 120_000,
+    placeholderData: keepPreviousData, // rows persist while a refresh is inflight
     queryFn: async () =>
       (await fetchTopPools()).filter((p) => MARKETS.some((m) => m.dexId === p.dexId)),
   });
@@ -219,6 +220,7 @@ export function useTrendingPools(enabled: boolean) {
     staleTime: 60_000,
     refetchInterval: 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
     queryFn: async () => (await fetchTrendingPools()).filter(onSupportedDex),
   });
 }
@@ -231,22 +233,24 @@ export function useNewPools(enabled: boolean) {
     staleTime: 60_000,
     refetchInterval: 60_000,
     retry: 1,
+    placeholderData: keepPreviousData,
     queryFn: async () => (await fetchNewPools()).filter(onSupportedDex),
   });
 }
 
-/** DexScreener icons + banners for a list of pools (batched, 24h-fresh). */
+/** DexScreener icons for a list of pools (batched, 24h-fresh). */
 export function usePairsMedia(pools: string[] | undefined) {
   const key = (pools ?? []).map((p) => p.toLowerCase()).sort();
   return useQuery({
     queryKey: ["pairs-media", key],
     enabled: key.length > 0,
     staleTime: 24 * 3_600_000, // token art doesn't churn
+    placeholderData: keepPreviousData, // icons persist while a new batch loads
     queryFn: () => fetchPairsMedia(key),
   });
 }
 
-/** DexScreener icon + header banner for the selected token. */
+/** DexScreener icon for the selected token. */
 export function useTokenMedia(token: Address | undefined) {
   return useQuery({
     queryKey: ["token-media", token?.toLowerCase()],
@@ -260,21 +264,31 @@ export function useTokenMedia(token: Address | undefined) {
 /**
  * Shareable market URLs — basedbot-style `/token/monad/0x…`.
  * On load, a deep link resolves + selects that market; afterwards the path
- * mirrors whatever market is selected.
+ * mirrors whatever market is selected. Returns true while the deep link is
+ * still resolving so the app can show a boot loader instead of flashing the
+ * home page.
  */
-export function useUrlMarketSync() {
+export function useUrlMarketSync(): boolean {
   const client = usePublicClient();
   const { token, setMarket } = useTerminal();
   const applied = useRef(false);
+  // A deep-linked path means a market is about to load — start in loading state.
+  const [resolving, setResolving] = useState(() =>
+    /^\/token\/monad\/0x[0-9a-fA-F]{40}$/.test(window.location.pathname),
+  );
 
   useEffect(() => {
     if (applied.current || !client) return;
     applied.current = true;
     const m = window.location.pathname.match(/^\/token\/monad\/(0x[0-9a-fA-F]{40})$/);
-    if (!m || useTerminal.getState().token) return;
+    if (!m || useTerminal.getState().token) {
+      setResolving(false);
+      return;
+    }
     lookupMarket(client, m[1] as Address)
       .then((r) => setMarket(r.token, r.pool))
-      .catch(() => window.history.replaceState(null, "", "/"));
+      .catch(() => window.history.replaceState(null, "", "/"))
+      .finally(() => setResolving(false));
   }, [client, setMarket]);
 
   useEffect(() => {
@@ -282,6 +296,8 @@ export function useUrlMarketSync() {
     const url = `/token/monad/${token.address.toLowerCase()}`;
     if (window.location.pathname !== url) window.history.replaceState(null, "", url);
   }, [token]);
+
+  return resolving;
 }
 
 /** Live pool tick + TOKEN price in the quote token from slot0 — same source the contract uses. */

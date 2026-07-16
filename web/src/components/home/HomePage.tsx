@@ -2,59 +2,51 @@ import { useState } from "react";
 import { useNewPools, useTopPools, useTrendingPools } from "../../hooks/market.ts";
 import { PoolTable } from "./PoolTable.tsx";
 
-const TABS = ["Trending", "New pairs", "Top volume"] as const;
-type Tab = (typeof TABS)[number];
+const TABS = [
+  { id: "trending", label: "🔥 Trending" },
+  { id: "new", label: "🌱 New pairs" },
+  { id: "volume", label: "📊 Top volume" },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
 
 /**
- * GMGN-style discovery home — shown when no market is selected. Live token
- * lists straight from GeckoTerminal; a row click drops you into the terminal.
+ * GMGN-style discovery home — shown when no market is selected. Full-width
+ * dense token table, live from GeckoTerminal; a row click opens the terminal.
  */
 export function HomePage() {
-  const [tab, setTab] = useState<Tab>("Trending");
+  const [tab, setTab] = useState<TabId>("trending");
   // Only the active tab polls — keeps us well inside gecko's free rate limit.
-  const trending = useTrendingPools(tab === "Trending");
-  const fresh = useNewPools(tab === "New pairs");
-  const top = useTopPools(tab === "Top volume");
-  const active = tab === "Trending" ? trending : tab === "New pairs" ? fresh : top;
+  const trending = useTrendingPools(tab === "trending");
+  const fresh = useNewPools(tab === "new");
+  const top = useTopPools(tab === "volume");
+  const active = tab === "trending" ? trending : tab === "new" ? fresh : top;
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-6">
-        {/* hero — minimal, the table is the point */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="text-xl font-bold">
-            MONO<span className="text-brand">LIMIT</span>
-          </div>
-          <p className="max-w-md text-center text-xs text-muted">
-            Non-custodial stop-losses, take-profits and sell ladders on Monad. Pick a token below
-            or paste any address in the market selector above.
-          </p>
-        </div>
-
-        {/* segmented list tabs */}
-        <div className="mx-auto grid w-full max-w-sm grid-cols-3 gap-1 rounded-md border border-line bg-raised p-1">
+    <div className="flex h-full flex-col gap-2 px-3 py-2.5">
+      {/* GMGN-style header row: tabs left, tagline right */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1">
           {TABS.map((t) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`rounded px-2 py-1 text-[12px] font-semibold ${
-                tab === t ? "bg-overlay text-fg" : "text-muted hover:text-fg"
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`rounded-md px-2.5 py-1.5 text-[13px] font-semibold transition-colors ${
+                tab === t.id ? "bg-raised text-fg ring-1 ring-line" : "text-muted hover:text-fg"
               }`}
             >
-              {t}
+              {t.label}
             </button>
           ))}
         </div>
+        <span className="hidden text-[11px] text-muted sm:block">
+          Non-custodial stop-losses &amp; take-profits on Monad — click any token to trade
+        </span>
+      </div>
 
-        <PoolTable
-          pools={active.data}
-          loading={active.isLoading}
-          showAge={tab === "New pairs"}
-        />
+      <PoolTable pools={active.data} loading={active.isLoading} />
 
-        <div className="text-center text-[11px] text-muted">
-          Live from GeckoTerminal · Uniswap v3, Capricorn &amp; PancakeSwap v3
-        </div>
+      <div className="text-center text-[10px] text-muted">
+        Live from GeckoTerminal · Uniswap v3, Capricorn &amp; PancakeSwap v3
       </div>
     </div>
   );

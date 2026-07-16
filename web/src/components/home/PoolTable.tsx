@@ -3,21 +3,16 @@ import { usePublicClient } from "wagmi";
 import { MARKETS } from "@monolimit/shared";
 import { lookupTopPool, usePairsMedia } from "../../hooks/market.ts";
 import type { TopPool } from "../../lib/gecko.ts";
-import { fmtAge, fmtPct, fmtUsd } from "../../lib/format.ts";
+import { fmtAge, fmtAmountNum, fmtPct, fmtUsd, shortAddr } from "../../lib/format.ts";
 import { useTerminal } from "../../state/terminal.ts";
 import { TokenIcon } from "../TokenIcon.tsx";
 import { useToasts } from "../Toasts.tsx";
 
-/** GMGN-style token list: click a row to open it in the trading terminal. */
-export function PoolTable({
-  pools,
-  loading,
-  showAge = false,
-}: {
-  pools: TopPool[] | undefined;
-  loading: boolean;
-  showAge?: boolean;
-}) {
+const GRID =
+  "grid grid-cols-[minmax(180px,2.4fr)_0.7fr_1fr_0.8fr_0.8fr_0.8fr_1fr_1fr_1fr_0.7fr] items-center gap-2";
+
+/** GMGN-style dense token table: click a row to open it in the terminal. */
+export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; loading: boolean }) {
   const client = usePublicClient();
   const setMarket = useTerminal((s) => s.setMarket);
   const push = useToasts((s) => s.push);
@@ -38,69 +33,116 @@ export function PoolTable({
     }
   };
 
-  const grid = showAge
-    ? "grid grid-cols-[2.2fr_1fr_0.8fr_1fr_1fr_0.6fr] items-center gap-2"
-    : "grid grid-cols-[2.2fr_1fr_0.8fr_1fr_1fr] items-center gap-2";
-
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-raised/40">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-line bg-raised/40">
       <div
-        className={`${grid} border-b border-line px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted`}
+        className={`${GRID} border-b border-line px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted`}
       >
         <span>Token</span>
+        <span className="text-right">Age</span>
         <span className="text-right">Price</span>
+        <span className="text-right">5m</span>
+        <span className="text-right">1h</span>
         <span className="text-right">24h</span>
         <span className="text-right">Volume</span>
-        <span className="text-right">Liquidity</span>
-        {showAge && <span className="text-right">Age</span>}
+        <span className="text-right">Liq</span>
+        <span className="text-right">MC</span>
+        <span className="text-right">Txs</span>
       </div>
-      <div className="max-h-[60vh] overflow-y-auto">
-        {loading && <div className="px-3 py-3 text-xs text-muted">Loading live pools…</div>}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {loading && !pools && <SkeletonRows />}
         {!loading && (pools?.length ?? 0) === 0 && (
-          <div className="px-3 py-3 text-xs text-muted">
+          <div className="px-3 py-4 text-xs text-muted">
             No pools indexed yet — paste a token address in the market selector above.
           </div>
         )}
         {(pools ?? []).map((p) => {
-          const chg = p.change24hPct;
           const market = MARKETS.find((m) => m.dexId === p.dexId);
+          const busy = resolving === p.address;
           return (
             <button
               key={p.address}
               onClick={() => pick(p)}
               disabled={!!resolving}
-              className={`${grid} w-full px-3 py-2 text-left text-[13px] hover:bg-raised disabled:opacity-60`}
+              className={`${GRID} w-full border-b border-line/40 px-3 py-2 text-left text-[13px] transition-colors hover:bg-raised disabled:opacity-60`}
             >
-              <span className="flex min-w-0 items-center gap-2">
+              <span className="flex min-w-0 items-center gap-2.5">
                 <TokenIcon
-                  url={media?.get(p.address.toLowerCase())?.icon ?? p.imageUrl}
+                  url={media?.get(p.address.toLowerCase()) ?? p.imageUrl}
                   symbol={p.baseSymbol}
+                  size="size-7"
                 />
-                <span className="truncate font-semibold">{p.baseSymbol}</span>
-                <span className="truncate text-[11px] text-muted">/{p.quoteSymbol}</span>
-                <span className="rounded bg-overlay px-1 py-px text-[8px] font-medium uppercase text-muted">
-                  {market?.label.split(" ")[0]}
+                <span className="flex min-w-0 flex-col">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate font-semibold">{p.baseSymbol}</span>
+                    <span className="truncate text-[11px] text-muted">/{p.quoteSymbol}</span>
+                    {busy && <span className="spinner size-3 shrink-0" />}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[10px] text-muted">
+                    <span>{shortAddr(p.baseToken)}</span>
+                    <span className="rounded bg-overlay px-1 py-px text-[8px] font-medium uppercase">
+                      {market?.label.split(" ")[0]}
+                    </span>
+                  </span>
                 </span>
+              </span>
+              <span className="text-right text-xs tabular-nums text-muted">
+                {p.createdAtSec != null ? fmtAge(p.createdAtSec) : "—"}
               </span>
               <span className="text-right tabular-nums">
-                {resolving === p.address ? "…" : p.priceUsd != null ? fmtUsd(p.priceUsd) : "—"}
+                {p.priceUsd != null ? fmtUsd(p.priceUsd) : "—"}
               </span>
-              <span
-                className={`text-right tabular-nums ${chg == null ? "text-muted" : chg >= 0 ? "text-up" : "text-down"}`}
-              >
-                {chg != null ? fmtPct(chg) : "—"}
-              </span>
-              <span className="text-right tabular-nums text-muted">{fmtUsd(p.volume24hUsd)}</span>
+              <PctCell v={p.change5mPct} />
+              <PctCell v={p.change1hPct} />
+              <PctCell v={p.change24hPct} />
+              <span className="text-right tabular-nums">{fmtUsd(p.volume24hUsd)}</span>
               <span className="text-right tabular-nums text-muted">{fmtUsd(p.reserveUsd)}</span>
-              {showAge && (
-                <span className="text-right tabular-nums text-muted">
-                  {p.createdAtSec != null ? fmtAge(p.createdAtSec) : "—"}
-                </span>
-              )}
+              <span className="text-right tabular-nums text-muted">
+                {p.fdvUsd != null ? fmtUsd(p.fdvUsd) : "—"}
+              </span>
+              <span className="text-right tabular-nums text-muted">
+                {p.txns24h != null ? fmtAmountNum(p.txns24h, 0) : "—"}
+              </span>
             </button>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function PctCell({ v }: { v: number | null }) {
+  return (
+    <span
+      className={`text-right text-xs font-medium tabular-nums ${
+        v == null ? "text-muted" : v >= 0 ? "text-up" : "text-down"
+      }`}
+    >
+      {v != null ? fmtPct(v) : "—"}
+    </span>
+  );
+}
+
+/** Shimmer placeholder rows shown only on first (uncached) load. */
+function SkeletonRows({ count = 12 }: { count?: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className={`${GRID} border-b border-line/40 px-3 py-2`}>
+          <span className="flex items-center gap-2.5">
+            <span className="skeleton size-7 shrink-0 rounded-full" />
+            <span className="flex flex-col gap-1">
+              <span className="skeleton h-3 w-24 rounded" />
+              <span className="skeleton h-2 w-16 rounded" />
+            </span>
+          </span>
+          {Array.from({ length: 9 }, (_, j) => (
+            <span key={j} className="flex justify-end">
+              <span className="skeleton h-3 w-10 rounded" />
+            </span>
+          ))}
+        </div>
+      ))}
+    </>
   );
 }

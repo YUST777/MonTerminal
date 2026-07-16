@@ -294,7 +294,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
             >
               <span className="flex min-w-0 items-center gap-1.5">
                 <TokenIcon
-                  url={media?.get(p.address.toLowerCase())?.icon ?? p.imageUrl}
+                  url={media?.get(p.address.toLowerCase()) ?? p.imageUrl}
                   symbol={p.baseSymbol}
                   size="size-4"
                 />

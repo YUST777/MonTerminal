@@ -58,3 +58,36 @@ body,
 [data-panel-resize-handle-id][data-resize-handle-active] {
   background: var(--color-brand);
 }
+
+/* skeleton shimmer for loading rows */
+.skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--color-raised) 40%,
+    var(--color-overlay) 50%,
+    var(--color-raised) 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* boot spinner (deep-link market resolution) */
+.spinner {
+  border: 2px solid var(--color-line);
+  border-top-color: var(--color-brand);
+  border-radius: 9999px;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

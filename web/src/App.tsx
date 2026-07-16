@@ -17,7 +17,21 @@ import { useUrlMarketSync } from "./hooks/market.ts";
 export default function App() {
   const { token } = useTerminal();
   const [bridgeOpen, setBridgeOpen] = useState(false);
-  useUrlMarketSync(); // /token/monad/0x… deep links ↔ selected market
+  // /token/monad/0x… deep links ↔ selected market; true while a deep link is
+  // still resolving on first load — show a boot loader, never flash the home page.
+  const booting = useUrlMarketSync();
+
+  if (booting) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-bg text-fg">
+        <div className="text-xl font-bold">
+          MONO<span className="monad-gradient-text">LIMIT</span>
+        </div>
+        <div className="spinner size-6" />
+        <div className="text-xs text-muted">Loading market…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col bg-bg text-fg">

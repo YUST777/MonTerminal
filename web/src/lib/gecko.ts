@@ -130,9 +130,13 @@ export interface TopPool {
   quoteSymbol: string;
   baseToken: string; // 0x…
   priceUsd: number | null;
+  change5mPct: number | null;
+  change1hPct: number | null;
   change24hPct: number | null;
   volume24hUsd: number;
   reserveUsd: number;
+  txns24h: number | null;
+  fdvUsd: number | null;
   /** base-token logo from GeckoTerminal's `include=base_token` sideload */
   imageUrl: string | null;
   createdAtSec: number | null;
@@ -159,6 +163,9 @@ function parsePoolRow(p: any, included?: IncludedMap): TopPool | null {
   const baseAttrs = included?.get(baseId)?.attributes;
   const image = String(baseAttrs?.image_url ?? "");
   const created = p.attributes?.pool_created_at ? Date.parse(p.attributes.pool_created_at) : NaN;
+  const pct = (v: unknown) => (v != null && v !== "" ? Number(v) : null);
+  const chg = p.attributes?.price_change_percentage ?? {};
+  const t24 = p.attributes?.transactions?.h24;
   return {
     address,
     dexId: String(p.relationships?.dex?.data?.id ?? ""),
@@ -168,11 +175,13 @@ function parsePoolRow(p: any, included?: IncludedMap): TopPool | null {
     priceUsd: p.attributes?.base_token_price_usd
       ? Number(p.attributes.base_token_price_usd)
       : null,
-    change24hPct: p.attributes?.price_change_percentage?.h24
-      ? Number(p.attributes.price_change_percentage.h24)
-      : null,
+    change5mPct: pct(chg.m5),
+    change1hPct: pct(chg.h1),
+    change24hPct: pct(chg.h24),
     volume24hUsd: Number(p.attributes?.volume_usd?.h24 ?? 0),
     reserveUsd: Number(p.attributes?.reserve_in_usd ?? 0),
+    txns24h: t24 ? Number(t24.buys ?? 0) + Number(t24.sells ?? 0) : null,
+    fdvUsd: p.attributes?.fdv_usd ? Number(p.attributes.fdv_usd) : null,
     imageUrl: image.startsWith("http") && !image.includes("missing.png") ? image : null,
     createdAtSec: Number.isFinite(created) ? Math.floor(created / 1000) : null,
   };
