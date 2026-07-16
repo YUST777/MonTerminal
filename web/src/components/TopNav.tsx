@@ -149,8 +149,8 @@ function LogoGlyph() {
     <svg viewBox="0 0 32 32" className="size-4" fill="none" aria-hidden>
       <defs>
         <linearGradient id="monoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#836ef9" />
-          <stop offset="1" stopColor="#a0055d" />
+          <stop stopColor="#b2a6f7" />
+          <stop offset="1" stopColor="#6656d6" />
         </linearGradient>
       </defs>
       <path

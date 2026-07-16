@@ -28,8 +28,8 @@ export function KlineChart() {
     const chart = init(el, {
       styles: {
         grid: {
-          horizontal: { color: "#1a1727" },
-          vertical: { color: "#1a1727" },
+          horizontal: { color: "#1d1e26" },
+          vertical: { color: "#1d1e26" },
         },
         candle: {
           bar: {
@@ -41,13 +41,13 @@ export function KlineChart() {
             downWickColor: "#ff9c9c",
           },
           priceMark: { last: { upColor: "#77c7af", downColor: "#ff9c9c" } },
-          tooltip: { text: { color: "#8f8aa8" } },
+          tooltip: { text: { color: "#8b8e9c" } },
         },
-        xAxis: { axisLine: { color: "#322c4a" }, tickText: { color: "#8f8aa8" } },
-        yAxis: { axisLine: { color: "#322c4a" }, tickText: { color: "#8f8aa8" } },
+        xAxis: { axisLine: { color: "#34363f" }, tickText: { color: "#8b8e9c" } },
+        yAxis: { axisLine: { color: "#34363f" }, tickText: { color: "#8b8e9c" } },
         crosshair: {
-          horizontal: { line: { color: "#8f8aa8" } },
-          vertical: { line: { color: "#8f8aa8" } },
+          horizontal: { line: { color: "#8b8e9c" } },
+          vertical: { line: { color: "#8b8e9c" } },
         },
       },
     });
