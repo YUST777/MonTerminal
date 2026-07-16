@@ -1,0 +1,22 @@
+# Reference repo — look-only, NEVER committed (hackathon rules: 100% new code)
+refrence/
+reference/
+
+# secrets
+.env
+.env.local
+.env.*.local
+
+# deps / build
+node_modules/
+dist/
+out/
+cache/
+broadcast/
+coverage/
+lcov.info
+
+# misc
+.DS_Store
+*.log
+.vite/

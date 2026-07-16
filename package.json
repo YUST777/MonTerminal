@@ -1,0 +1,13 @@
+{
+  "name": "monolimit",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Non-custodial limit-order / stop-loss / take-profit DEX terminal on Monad mainnet",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "keeper": "pnpm --filter @monolimit/keeper start",
+    "web": "pnpm --filter @monolimit/web dev"
+  },
+  "packageManager": "pnpm@11.13.1"
+}
