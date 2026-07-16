@@ -20,7 +20,11 @@ function subscript(n: number): string {
 }
 
 export function fmtAmount(raw: bigint, decimals: number, maxDp = 4): string {
-  const v = Number(raw) / 10 ** decimals;
+  return fmtAmountNum(Number(raw) / 10 ** decimals, maxDp);
+}
+
+export function fmtAmountNum(v: number, maxDp = 4): string {
+  if (!Number.isFinite(v)) return "—";
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
   if (v >= 1_000) return `${(v / 1_000).toFixed(2)}K`;
   return v.toLocaleString("en-US", { maximumFractionDigits: maxDp });

@@ -94,7 +94,7 @@ export function ApprovalGate({
         <button
           onClick={() => run(onApprove, "approving")}
           disabled={disabled || step !== "idle" || busy}
-          className="w-full rounded bg-brand py-1.5 text-xs font-semibold text-bg hover:opacity-90 disabled:opacity-40"
+          className="monad-gradient w-full rounded py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
         >
           {step === "approving" ? "Approving…" : "Approve"}
         </button>
@@ -102,7 +102,7 @@ export function ApprovalGate({
         <button
           onClick={() => run(onPlace, "placing")}
           disabled={disabled || step !== "idle" || busy}
-          className="w-full rounded bg-brand py-1.5 text-xs font-semibold text-bg hover:opacity-90 disabled:opacity-40"
+          className="monad-gradient w-full rounded py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
         >
           {step === "placing" ? "Placing…" : placeLabel}
         </button>

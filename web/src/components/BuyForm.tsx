@@ -88,7 +88,7 @@ export function BuyForm() {
       <button
         onClick={buy}
         disabled={!amount || amount === 0n || !!status || !walletClient}
-        className="w-full rounded bg-up py-1.5 text-xs font-semibold text-bg hover:opacity-90 disabled:opacity-40"
+        className="monad-gradient w-full rounded py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
       >
         {status ?? `Buy ${token.symbol}`}
       </button>

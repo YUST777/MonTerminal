@@ -1,16 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #12131a;
-  --color-raised: #1d1e26;
-  --color-overlay: #292b33;
-  --color-line: #34363f;
-  --color-brand: #b2bcf1;
+  --color-bg: #100e1a;
+  --color-raised: #1a1727;
+  --color-overlay: #241f36;
+  --color-line: #322c4a;
+  --color-brand: #836ef9; /* Monad purple */
+  --color-berry: #a0055d; /* Monad berry — gradient partner */
   --color-up: #77c7af;
   --color-down: #ff9c9c;
   --color-warn: #e0be70;
-  --color-fg: #e6e7ee;
-  --color-muted: #8b8e9c;
+  --color-fg: #eceafa;
+  --color-muted: #8f8aa8;
   --font-sans: "Inter", "InterVariable", system-ui, sans-serif;
   --spacing: 4px;
 }
@@ -19,10 +20,24 @@ html,
 body,
 #root {
   height: 100%;
-  background: var(--color-bg);
+  background:
+    radial-gradient(1100px 500px at 75% -12%, rgba(131, 110, 249, 0.14), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(160, 5, 93, 0.1), transparent 60%),
+    var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
   font-feature-settings: "tnum" 1, "cv08" 1;
+}
+
+/* Monad brand gradient helpers */
+.monad-gradient {
+  background-image: linear-gradient(90deg, var(--color-brand), var(--color-berry));
+}
+.monad-gradient-text {
+  background-image: linear-gradient(90deg, var(--color-brand), #c69bff 55%, var(--color-berry));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 ::-webkit-scrollbar {

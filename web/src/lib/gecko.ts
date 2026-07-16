@@ -44,6 +44,35 @@ export async function fetchOhlcv(pool: string, tf: Timeframe, limit = 300): Prom
     .sort((a, b) => a.timestamp - b.timestamp);
 }
 
+export interface Trade {
+  ts: number; // seconds
+  side: "buy" | "sell";
+  priceUsd: number;
+  amount: number; // base-token units
+  tx: string;
+}
+
+/** Recent trades for a pool — the "Trades" tab feed. */
+export async function fetchTrades(pool: string): Promise<Trade[]> {
+  const res = await fetch(`${BASE}/networks/monad/pools/${pool}/trades`);
+  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
+  const data: any[] = (await res.json())?.data ?? [];
+  return data
+    .map((t) => {
+      const a = t.attributes ?? {};
+      const buy = a.kind === "buy";
+      return {
+        ts: Math.floor(Date.parse(a.block_timestamp) / 1000),
+        side: (buy ? "buy" : "sell") as "buy" | "sell",
+        priceUsd: Number(buy ? a.price_to_in_usd : a.price_from_in_usd),
+        amount: Number(buy ? a.to_token_amount : a.from_token_amount),
+        tx: String(a.tx_hash ?? ""),
+      };
+    })
+    .filter((t) => Number.isFinite(t.ts))
+    .sort((a, b) => b.ts - a.ts);
+}
+
 export interface PoolStats {
   priceUsd: number | null;
   change24hPct: number | null;

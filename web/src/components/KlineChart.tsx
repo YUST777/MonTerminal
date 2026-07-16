@@ -28,8 +28,8 @@ export function KlineChart() {
     const chart = init(el, {
       styles: {
         grid: {
-          horizontal: { color: "#1d1e26" },
-          vertical: { color: "#1d1e26" },
+          horizontal: { color: "#1a1727" },
+          vertical: { color: "#1a1727" },
         },
         candle: {
           bar: {
@@ -41,18 +41,19 @@ export function KlineChart() {
             downWickColor: "#ff9c9c",
           },
           priceMark: { last: { upColor: "#77c7af", downColor: "#ff9c9c" } },
-          tooltip: { text: { color: "#8b8e9c" } },
+          tooltip: { text: { color: "#8f8aa8" } },
         },
-        xAxis: { axisLine: { color: "#34363f" }, tickText: { color: "#8b8e9c" } },
-        yAxis: { axisLine: { color: "#34363f" }, tickText: { color: "#8b8e9c" } },
+        xAxis: { axisLine: { color: "#322c4a" }, tickText: { color: "#8f8aa8" } },
+        yAxis: { axisLine: { color: "#322c4a" }, tickText: { color: "#8f8aa8" } },
         crosshair: {
-          horizontal: { line: { color: "#8b8e9c" } },
-          vertical: { line: { color: "#8b8e9c" } },
+          horizontal: { line: { color: "#8f8aa8" } },
+          vertical: { line: { color: "#8f8aa8" } },
         },
       },
     });
     // Gecko timestamps are UTC epoch — render the axis in the user's zone.
     chart?.setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    chart?.setBarSpace(10); // roomy candles like the reference
     chartRef.current = chart;
     return () => {
       dispose(el);

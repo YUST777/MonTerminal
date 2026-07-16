@@ -8,9 +8,11 @@ import {
   fetchPoolStats,
   fetchTokenPools,
   fetchTopPools,
+  fetchTrades,
   type Timeframe,
   type TopPool,
 } from "../lib/gecko.ts";
+import { buildDepth } from "../lib/depth.ts";
 import { useTerminal, type PoolInfo, type TokenMeta } from "../state/terminal.ts";
 
 type Client = NonNullable<ReturnType<typeof usePublicClient>>;
@@ -22,6 +24,8 @@ const POOL_ABI = parseAbi([
   "function token0() view returns (address)",
   "function token1() view returns (address)",
   "function fee() view returns (uint24)",
+  "function tickSpacing() view returns (int24)",
+  "function ticks(int24) view returns (uint128 liquidityGross, int128 liquidityNet, uint256 feeGrowthOutside0X128, uint256 feeGrowthOutside1X128, int56 tickCumulativeOutside, uint160 secondsPerLiquidityOutsideX128, uint32 secondsOutside, bool initialized)",
 ]);
 
 /** Common quote tokens for the on-chain fallback scan. */
@@ -270,5 +274,73 @@ export function usePoolStats(pool: PoolInfo | null) {
     enabled: !!pool,
     refetchInterval: 15_000,
     queryFn: () => fetchPoolStats(pool!.address),
+  });
+}
+
+const DEPTH_LEVELS = 12;
+
+/**
+ * Real order-book depth from the pool's tick liquidity: slot0 + tickSpacing +
+ * liquidityNet at the surrounding initialized ticks, folded into a ladder.
+ */
+export function useDepth(pool: PoolInfo | null, token: TokenMeta | null) {
+  const client = usePublicClient();
+  return useQuery({
+    queryKey: ["depth", pool?.address],
+    enabled: !!client && !!pool && !!token,
+    refetchInterval: 4_000,
+    queryFn: async () => {
+      const address = pool!.address;
+      const [slot0, liquidity, spacing] = await client!.multicall({
+        contracts: [
+          { address, abi: POOL_ABI, functionName: "slot0" },
+          { address, abi: POOL_ABI, functionName: "liquidity" },
+          { address, abi: POOL_ABI, functionName: "tickSpacing" },
+        ],
+        allowFailure: false,
+      });
+      const tick = Number(slot0[1]);
+      const tickSpacing = Number(spacing);
+      const tickLow = Math.floor(tick / tickSpacing) * tickSpacing;
+      const boundaries = Array.from(
+        { length: DEPTH_LEVELS * 2 + 1 },
+        (_, i) => tickLow + (i - DEPTH_LEVELS) * tickSpacing,
+      );
+      // Fork `ticks()` layouts can differ — tolerate per-tick decode failures.
+      const ticksData = await client!.multicall({
+        contracts: boundaries.map((t) => ({
+          address,
+          abi: POOL_ABI,
+          functionName: "ticks" as const,
+          args: [t] as const,
+        })),
+        allowFailure: true,
+      });
+      const liquidityNet = new Map<number, bigint>();
+      ticksData.forEach((r, i) => {
+        if (r.status === "success") liquidityNet.set(boundaries[i]!, r.result[1]);
+      });
+      return buildDepth({
+        tick,
+        sqrtPriceX96: slot0[0],
+        liquidity,
+        tickSpacing,
+        tokenIsToken0: pool!.tokenIsToken0,
+        token: token!,
+        quote: pool!.quote,
+        levels: DEPTH_LEVELS,
+        liquidityNet,
+      });
+    },
+  });
+}
+
+/** Recent pool trades (GeckoTerminal), refetched every 10s. */
+export function useTrades(pool: PoolInfo | null) {
+  return useQuery({
+    queryKey: ["trades", pool?.address],
+    enabled: !!pool,
+    refetchInterval: 10_000,
+    queryFn: () => fetchTrades(pool!.address),
   });
 }

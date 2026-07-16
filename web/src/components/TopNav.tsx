@@ -15,7 +15,7 @@ export function TopNav({ onBridge }: { onBridge: () => void }) {
           <LogoGlyph />
         </span>
         <span className="text-[13px] font-bold tracking-tight">
-          MONO<span className="text-brand">LIMIT</span>
+          MONO<span className="monad-gradient-text">LIMIT</span>
         </span>
       </a>
 
@@ -147,9 +147,15 @@ function SettingsMenu() {
 function LogoGlyph() {
   return (
     <svg viewBox="0 0 32 32" className="size-4" fill="none" aria-hidden>
+      <defs>
+        <linearGradient id="monoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#836ef9" />
+          <stop offset="1" stopColor="#a0055d" />
+        </linearGradient>
+      </defs>
       <path
         d="M7 22V10l5 7 4-7 4 7 5-7v12"
-        stroke="#b2bcf1"
+        stroke="url(#monoGrad)"
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"

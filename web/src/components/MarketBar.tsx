@@ -209,8 +209,8 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
   const grid = "grid grid-cols-[1.5fr_1fr_0.9fr_1fr_1fr] items-center gap-2";
 
   return (
-    <div className="absolute left-0 top-full z-30 mt-1 w-[30rem] rounded-md border border-line bg-overlay shadow-2xl">
-      <div className="px-2.5 pt-2 text-xs font-semibold">Select market</div>
+    <div className="absolute left-0 top-full z-30 mt-1 w-[38rem] rounded-md border border-line bg-overlay shadow-2xl">
+      <div className="px-3 pt-2.5 text-sm font-semibold">Select market</div>
       <div className="p-2">
         <input
           autoFocus
@@ -218,7 +218,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search markets or paste a token address (0x…)"
           spellCheck={false}
-          className="w-full rounded border border-line bg-raised px-2 py-1.5 text-xs outline-none placeholder:text-muted focus:border-brand"
+          className="w-full rounded border border-line bg-raised px-2.5 py-2 text-[13px] outline-none placeholder:text-muted focus:border-brand"
         />
       </div>
 
@@ -228,7 +228,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
           <button
             key={m.dexId}
             onClick={() => setDexTab(m.dexId)}
-            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            className={`rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
               dexTab === m.dexId ? "bg-raised text-fg" : "text-muted hover:text-fg"
             }`}
           >
@@ -262,7 +262,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
       )}
 
       {/* volume-ranked market table */}
-      <div className={`${grid} px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-muted`}>
+      <div className={`${grid} px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted`}>
         <span>Market</span>
         {(["price", "change", "volume", "liquidity"] as SortKey[]).map((k) => (
           <button
@@ -275,7 +275,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
           </button>
         ))}
       </div>
-      <div className="max-h-72 overflow-y-auto pb-1">
+      <div className="max-h-96 overflow-y-auto pb-1">
         {isLoading && <div className="px-2.5 py-2 text-xs text-muted">Loading markets…</div>}
         {rows.map((p) => {
           const chg = p.change24hPct;
@@ -285,7 +285,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
               key={p.address}
               onClick={() => pickRow(p)}
               disabled={!!resolving}
-              className={`${grid} w-full px-2.5 py-1.5 text-left text-xs hover:bg-raised disabled:opacity-60`}
+              className={`${grid} w-full px-3 py-2 text-left text-[13px] hover:bg-raised disabled:opacity-60`}
             >
               <span className="flex min-w-0 items-center gap-1.5">
                 <TokenAvatar symbol={p.baseSymbol} />

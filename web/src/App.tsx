@@ -5,6 +5,7 @@ import { KlineChart } from "./components/KlineChart.tsx";
 import { MarketBar } from "./components/MarketBar.tsx";
 import { NetworkGuard } from "./components/NetworkGuard.tsx";
 import { OrderSidebar } from "./components/OrderSidebar.tsx";
+import { OrderBook } from "./components/OrderBook.tsx";
 import { OrdersDock } from "./components/OrdersTables.tsx";
 import { Toasts } from "./components/Toasts.tsx";
 import { TokenHeader } from "./components/TokenHeader.tsx";
@@ -31,7 +32,14 @@ export default function App() {
             <Panel defaultSize={77} minSize={50}>
               <PanelGroup direction="vertical">
                 <Panel defaultSize={68} minSize={40}>
-                  <KlineChart />
+                  <div className="flex h-full">
+                    <div className="min-w-0 flex-1">
+                      <KlineChart />
+                    </div>
+                    <div className="w-56 shrink-0 border-l border-line">
+                      <OrderBook />
+                    </div>
+                  </div>
                 </Panel>
                 <PanelResizeHandle className="resize-handle h-px bg-line" />
                 <Panel defaultSize={32} minSize={15}>
