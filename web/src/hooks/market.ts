@@ -152,7 +152,13 @@ export async function lookupMarket(client: Client, address: Address): Promise<Ma
     throw new Error("This contract isn't a standard ERC-20 token");
   }
 
-  const gecko = await fetchTokenPools(address).catch(() => []);
+  // Rate-limited gecko ≠ unsupported token — remember which one happened so
+  // the error below doesn't lie about it.
+  let geckoDown = false;
+  const gecko = await fetchTokenPools(address).catch(() => {
+    geckoDown = true;
+    return [];
+  });
   // Gecko sorts deepest-first, so the first supported dex wins.
   const supported = gecko.find((p) => MARKETS.some((m) => m.dexId === p.dexId));
   let poolAddress: Address | null;
@@ -168,9 +174,11 @@ export async function lookupMarket(client: Client, address: Address): Promise<Ma
   if (!poolAddress || !market) {
     const elsewhere = gecko[0];
     throw new Error(
-      elsewhere
-        ? `${token.symbol} only trades on ${prettyDex(elsewhere.dexId)} ($${Math.round(elsewhere.reserveUsd).toLocaleString()} liq) — MonoLimit supports ${MARKETS.map((m) => m.label).join(", ")}, and ${token.symbol} has no pool on any of them`
-        : `${token.symbol} has no pool on a supported DEX (${MARKETS.map((m) => m.label).join(", ")})`,
+      geckoDown
+        ? `Price API is rate-limited right now — couldn't look up ${token.symbol}'s pools. Try again in a few seconds.`
+        : elsewhere
+          ? `${token.symbol} only trades on ${prettyDex(elsewhere.dexId)} ($${Math.round(elsewhere.reserveUsd).toLocaleString()} liq) — MonoLimit supports ${MARKETS.map((m) => m.label).join(", ")}, and ${token.symbol} has no pool on any of them`
+          : `${token.symbol} has no pool on a supported DEX (${MARKETS.map((m) => m.label).join(", ")})`,
     );
   }
 

@@ -5,6 +5,50 @@
 
 const BASE = "https://api.geckoterminal.com/api/v2";
 
+/*
+ * Global throttle — the free tier allows ~30 calls/min PER IP, shared by every
+ * tab. Home + portfolio + sparklines together easily blow that, and a 429
+ * response has no CORS headers, so the whole app "CORS-fails" at once. Every
+ * gecko call goes through here: a short burst is allowed, then calls are
+ * spaced to stay under the limit; identical in-flight URLs are deduped and a
+ * single 429 gets one delayed retry.
+ */
+const GAP_MS = 2_200; // ≈27/min sustained
+const BURST = 5;
+let nextSlot = 0;
+
+function reserveSlot(): number {
+  const now = Date.now();
+  nextSlot = Math.max(nextSlot, now - GAP_MS * (BURST - 1));
+  const start = nextSlot;
+  nextSlot += GAP_MS;
+  return Math.max(0, start - now);
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const inflight = new Map<string, Promise<any>>();
+
+async function geckoJson(url: string): Promise<any> {
+  const pending = inflight.get(url);
+  if (pending) return pending;
+  const p = (async () => {
+    await sleep(reserveSlot());
+    // A 429 has no CORS headers, so the browser surfaces it as a thrown
+    // TypeError rather than a readable status — treat both as rate-limited.
+    let res: Response | null = await fetch(url).catch(() => null);
+    if (!res || res.status === 429) {
+      await sleep(12_000);
+      await sleep(reserveSlot());
+      res = await fetch(url);
+    }
+    if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
+    return res.json();
+  })();
+  inflight.set(url, p);
+  p.catch(() => {}).finally(() => inflight.delete(url));
+  return p;
+}
+
 export interface Candle {
   timestamp: number; // seconds
   open: number;
@@ -31,11 +75,9 @@ export async function fetchOhlcv(
   limit = 300,
   currency: "token" | "usd" = "token",
 ): Promise<Candle[]> {
-  const res = await fetch(
+  const json = await geckoJson(
     `${BASE}/networks/monad/pools/${pool}/ohlcv/${TF_PATH[tf]}&limit=${limit}&currency=${currency}`,
   );
-  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
-  const json = await res.json();
   const list: number[][] = json?.data?.attributes?.ohlcv_list ?? [];
   return list
     .map(([ts, o, h, l, c, v]) => ({
@@ -59,9 +101,7 @@ export interface Trade {
 
 /** Recent trades for a pool — the "Trades" tab feed. */
 export async function fetchTrades(pool: string): Promise<Trade[]> {
-  const res = await fetch(`${BASE}/networks/monad/pools/${pool}/trades`);
-  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
-  const data: any[] = (await res.json())?.data ?? [];
+  const data: any[] = (await geckoJson(`${BASE}/networks/monad/pools/${pool}/trades`))?.data ?? [];
   return data
     .map((t) => {
       const a = t.attributes ?? {};
@@ -88,9 +128,7 @@ export interface PoolStats {
 }
 
 export async function fetchPoolStats(pool: string): Promise<PoolStats> {
-  const res = await fetch(`${BASE}/networks/monad/pools/${pool}`);
-  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
-  const attrs = (await res.json())?.data?.attributes ?? {};
+  const attrs = (await geckoJson(`${BASE}/networks/monad/pools/${pool}`))?.data?.attributes ?? {};
   const t24 = attrs.transactions?.h24;
   return {
     priceUsd: attrs.base_token_price_usd ? Number(attrs.base_token_price_usd) : null,
@@ -113,9 +151,9 @@ export interface GeckoPool {
 
 /** All indexed pools for a token, deepest first — used to discover its Uniswap v3 pool. */
 export async function fetchTokenPools(token: string): Promise<GeckoPool[]> {
-  const res = await fetch(`${BASE}/networks/monad/tokens/${token.toLowerCase()}/pools?page=1`);
-  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
-  const data: any[] = (await res.json())?.data ?? [];
+  const data: any[] =
+    (await geckoJson(`${BASE}/networks/monad/tokens/${token.toLowerCase()}/pools?page=1`))?.data ??
+    [];
   return data
     .map((p) => ({
       address: String(p.attributes?.address ?? p.id?.replace(/^monad_/, "") ?? ""),
@@ -203,9 +241,7 @@ function parsePoolRow(p: any, included?: IncludedMap): TopPool | null {
 async function fetchPoolPages(path: string, pages: number): Promise<TopPool[]> {
   const results = await Promise.all(
     Array.from({ length: pages }, (_, i) =>
-      fetch(`${BASE}${path}page=${i + 1}&include=base_token`).then((r) =>
-        r.ok ? r.json() : { data: [] },
-      ),
+      geckoJson(`${BASE}${path}page=${i + 1}&include=base_token`).catch(() => ({ data: [] })),
     ),
   );
   const seen = new Set<string>();
@@ -229,9 +265,9 @@ export async function fetchTopPools(pages = 5): Promise<TopPool[]> {
 
 /** GeckoTerminal's trending Monad pools (24h window) — home "Trending" tab. */
 export async function fetchTrendingPools(): Promise<TopPool[]> {
-  const res = await fetch(`${BASE}/networks/monad/trending_pools?include=base_token&duration=24h`);
-  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
-  const json = await res.json();
+  const json = await geckoJson(
+    `${BASE}/networks/monad/trending_pools?include=base_token&duration=24h`,
+  );
   const included = buildIncluded(json);
   return ((json?.data ?? []) as any[])
     .map((p) => parsePoolRow(p, included))
@@ -252,9 +288,11 @@ export async function fetchSimplePrices(addresses: string[]): Promise<Map<string
   const unique = [...new Set(addresses.map((a) => a.toLowerCase()))];
   for (let i = 0; i < unique.length; i += 30) {
     const batch = unique.slice(i, i + 30);
-    const res = await fetch(`${BASE}/simple/networks/monad/token_price/${batch.join(",")}`);
-    if (!res.ok) continue;
-    const prices = (await res.json())?.data?.attributes?.token_prices ?? {};
+    const json = await geckoJson(
+      `${BASE}/simple/networks/monad/token_price/${batch.join(",")}`,
+    ).catch(() => null);
+    if (!json) continue;
+    const prices = json?.data?.attributes?.token_prices ?? {};
     for (const [addr, v] of Object.entries(prices)) {
       const n = Number(v);
       if (Number.isFinite(n)) map.set(addr.toLowerCase(), n);
