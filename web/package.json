@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@monolimit/shared": "workspace:*",
+    "@radix-ui/react-dialog": "^1.1.19",
     "@rainbow-me/rainbowkit": "^2.2.8",
     "@tanstack/react-query": "^5.85.5",
     "klinecharts": "^9.8.10",

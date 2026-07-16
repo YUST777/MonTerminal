@@ -91,3 +91,22 @@ body,
     transform: rotate(360deg);
   }
 }
+
+/* dialog enter animations (radix mounts on open) */
+.animate-overlay-in {
+  animation: overlay-in 150ms ease-out;
+}
+.animate-sheet-in {
+  animation: sheet-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+}
