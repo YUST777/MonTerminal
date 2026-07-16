@@ -85,13 +85,13 @@ export function ChainSelectModal({
       onClick={onClose}
     >
       <div
-        className="w-[880px] max-w-[calc(100vw-2rem)] rounded-[28px] border border-line bg-raised p-8 shadow-2xl"
+        className="w-[560px] max-w-[calc(100vw-2rem)] rounded-3xl border border-line bg-raised p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-6 flex items-center gap-6">
-          <span className="shrink-0 text-2xl font-semibold">Select a network</span>
+        <div className="mb-4 flex items-center gap-4">
+          <span className="shrink-0 text-base font-semibold">Select a network</span>
           {/* search inline with the title — keeps the sheet short */}
-          <div className="flex flex-1 items-center gap-3 rounded-full bg-bg/60 px-5 py-3 ring-1 ring-line focus-within:ring-brand">
+          <div className="flex flex-1 items-center gap-2 rounded-full bg-bg/60 px-3.5 py-2 ring-1 ring-line focus-within:ring-brand">
             <SearchGlyph />
             <input
               autoFocus
@@ -99,20 +99,20 @@ export function ChainSelectModal({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search networks"
               spellCheck={false}
-              className="w-full bg-transparent text-base outline-none placeholder:text-muted"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
             />
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-overlay text-muted transition-colors hover:text-fg"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-overlay text-muted transition-colors hover:text-fg"
           >
             <CloseGlyph />
           </button>
         </div>
 
-        {/* landscape 3-col card grid — wide and short, never a tall list */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* 2-col card grid — same mock layout, compact */}
+        <div className="grid grid-cols-2 gap-3">
           {rows.map((c) => (
             <ChainCard
               key={c.id}
@@ -148,16 +148,16 @@ function ChainCard({
   return (
     <button
       onClick={onPick}
-      className={`flex items-center gap-4 rounded-2xl px-5 py-5 text-left transition-colors ${
+      className={`flex items-center gap-3 rounded-2xl px-3.5 py-3 text-left transition-colors ${
         active
-          ? "bg-brand/10 ring-1 ring-brand/60"
+          ? "bg-brand/5 ring-1 ring-brand/70"
           : "bg-overlay/40 ring-1 ring-transparent hover:bg-overlay hover:ring-line"
       }`}
     >
-      <ChainIcon chain={chain} size="size-12" />
+      <ChainIcon chain={chain} size="size-9" />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-lg font-semibold leading-tight">{chain.name}</span>
-        <span className="text-sm tabular-nums text-muted">
+        <span className="truncate text-sm font-semibold leading-tight">{chain.name}</span>
+        <span className="text-xs tabular-nums text-muted">
           {val != null
             ? `${val.toFixed(4)} ${chain.nativeCurrency.symbol}`
             : chain.nativeCurrency.symbol}
@@ -172,7 +172,7 @@ function ChainCard({
 
 function SearchGlyph() {
   return (
-    <svg viewBox="0 0 16 16" className="size-5 shrink-0 text-muted" fill="none" aria-hidden>
+    <svg viewBox="0 0 16 16" className="size-4 shrink-0 text-muted" fill="none" aria-hidden>
       <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
       <path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
@@ -189,7 +189,7 @@ function CloseGlyph() {
 
 function CheckGlyph() {
   return (
-    <svg viewBox="0 0 16 16" className="size-5 shrink-0 text-brand" fill="none" aria-hidden>
+    <svg viewBox="0 0 16 16" className="size-4 shrink-0 text-brand" fill="none" aria-hidden>
       <path
         d="m3 8.5 3.5 3.5L13 5"
         stroke="currentColor"
