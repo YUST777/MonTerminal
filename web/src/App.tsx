@@ -1,5 +1,6 @@
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { BridgePage } from "./components/bridge/BridgePage.tsx";
+import { BurnerPage } from "./components/burner/BurnerPage.tsx";
 import { HomePage } from "./components/home/HomePage.tsx";
 import { PortfolioPage } from "./components/portfolio/PortfolioPage.tsx";
 import { KlineChart } from "./components/KlineChart.tsx";
@@ -36,7 +37,8 @@ export default function App() {
 
   const onBridge = path === "/bridge";
   const onPortfolio = path === "/portfolio";
-  const fullPage = onBridge || onPortfolio;
+  const onBurner = path === "/burner";
+  const fullPage = onBridge || onPortfolio || onBurner;
 
   return (
     <div className="flex h-screen flex-col bg-bg text-fg">
@@ -51,6 +53,8 @@ export default function App() {
           <BridgePage />
         ) : onPortfolio ? (
           <PortfolioPage />
+        ) : onBurner ? (
+          <BurnerPage />
         ) : token ? (
           <PanelGroup direction="horizontal">
             <Panel defaultSize={77} minSize={50}>

@@ -13,6 +13,7 @@ export function TopNav() {
   const token = useTerminal((s) => s.token);
   const onBridge = path === "/bridge";
   const onPortfolio = path === "/portfolio";
+  const onBurner = path === "/burner";
   // "Spot" returns to the selected market if there is one, else home.
   const spotPath = token ? `/token/monad/${token.address.toLowerCase()}` : "/";
 
@@ -27,7 +28,7 @@ export function TopNav() {
 
       {/* primary nav */}
       <nav className="flex items-center gap-0.5 text-[13px]">
-        <NavItem active={!onBridge && !onPortfolio} onClick={() => navigate(spotPath)}>
+        <NavItem active={!onBridge && !onPortfolio && !onBurner} onClick={() => navigate(spotPath)}>
           Spot
         </NavItem>
         <NavItem active={onBridge} onClick={() => navigate("/bridge")}>
@@ -36,7 +37,9 @@ export function TopNav() {
         <NavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
           Portfolio
         </NavItem>
-        <NavItem soon>Burner</NavItem>
+        <NavItem active={onBurner} onClick={() => navigate("/burner")}>
+          Burner
+        </NavItem>
       </nav>
 
       {/* right cluster */}
