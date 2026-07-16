@@ -14,16 +14,18 @@ export interface PoolInfo {
   fee: number;
   /** true when the selected token is the pool's token0 */
   tokenIsToken0: boolean;
+  /** the other side of the pool (WMON, USDC, …) — prices are quoted in this */
+  quote: TokenMeta;
 }
 
 interface TerminalState {
-  /** Token being traded (quoted against WMON). */
+  /** Token being traded (quoted against the pool's quote token). */
   token: TokenMeta | null;
   pool: PoolInfo | null;
   setMarket: (token: TokenMeta, pool: PoolInfo) => void;
 }
 
-/** WMON meta is static — every market on the terminal is TOKEN/WMON. */
+/** WMON meta is static — used for native-MON payout detection. */
 export const WMON_META: TokenMeta = {
   address: ADDRESSES.WMON,
   symbol: "WMON",

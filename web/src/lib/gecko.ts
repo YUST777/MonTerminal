@@ -62,3 +62,26 @@ export async function fetchPoolStats(pool: string): Promise<PoolStats> {
     volume24hUsd: attrs.volume_usd?.h24 ? Number(attrs.volume_usd.h24) : null,
   };
 }
+
+export interface GeckoPool {
+  address: string;
+  dexId: string;
+  reserveUsd: number;
+  name: string;
+}
+
+/** All indexed pools for a token, deepest first — used to discover its Uniswap v3 pool. */
+export async function fetchTokenPools(token: string): Promise<GeckoPool[]> {
+  const res = await fetch(`${BASE}/networks/monad/tokens/${token.toLowerCase()}/pools?page=1`);
+  if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
+  const data: any[] = (await res.json())?.data ?? [];
+  return data
+    .map((p) => ({
+      address: String(p.attributes?.address ?? p.id?.replace(/^monad_/, "") ?? ""),
+      dexId: String(p.relationships?.dex?.data?.id ?? ""),
+      reserveUsd: Number(p.attributes?.reserve_in_usd ?? 0),
+      name: String(p.attributes?.name ?? ""),
+    }))
+    .filter((p) => p.address.startsWith("0x"))
+    .sort((a, b) => b.reserveUsd - a.reserveUsd);
+}

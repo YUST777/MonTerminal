@@ -7,6 +7,7 @@ import "@rainbow-me/rainbowkit/styles.css";
 import "./index.css";
 import App from "./App.tsx";
 import { wagmiConfig } from "./config/wagmi.ts";
+import { monad } from "@monolimit/shared";
 
 const queryClient = new QueryClient();
 
@@ -15,6 +16,7 @@ createRoot(document.getElementById("root")!).render(
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
+          initialChain={monad}
           theme={darkTheme({
             accentColor: "#b2bcf1",
             accentColorForeground: "#12131a",

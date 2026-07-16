@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { tickToExecutionPrice, computeTrigger, ADDRESSES } from "@monolimit/shared";
+import { tickToExecutionPrice, computeTrigger } from "@monolimit/shared";
 import { useLivePrice } from "../hooks/market.ts";
 import { buildOrderParams, usePlaceOrders, useTokenBalance } from "../hooks/trade.ts";
 import { fmtAmount, fmtPrice } from "../lib/format.ts";
@@ -141,10 +141,11 @@ export function StopLossForm() {
   const amountIn = balance !== undefined ? (balance * BigInt(pct)) / 100n : 0n;
 
   const triggerPrice = useMemo(() => {
-    if (!token || !live) return null;
-    const { triggerTick } = computeTrigger("sl", live.tick, mult, token.address, ADDRESSES.WMON);
-    return tickToExecutionPrice(triggerTick, token.address, ADDRESSES.WMON, token.decimals, 18);
-  }, [token, live, mult]);
+    if (!token || !live || !pool) return null;
+    const q = pool.quote;
+    const { triggerTick } = computeTrigger("sl", live.tick, mult, token.address, q.address);
+    return tickToExecutionPrice(triggerTick, token.address, q.address, token.decimals, q.decimals);
+  }, [token, live, mult, pool]);
 
   if (!token || !pool) return null;
 
@@ -166,9 +167,9 @@ export function StopLossForm() {
       <PctOfBalance balance={balance} decimals={token.decimals} pct={pct} setPct={setPct} />
       <div className="rounded border border-line bg-bg p-2">
         <Row k="Sell" v={`${fmtAmount(amountIn, token.decimals)} ${token.symbol}`} />
-        <Row k="Trigger (60s TWAP)" v={triggerPrice ? `${fmtPrice(triggerPrice)} WMON` : "—"} tone="down" />
+        <Row k="Trigger (60s TWAP)" v={triggerPrice ? `${fmtPrice(triggerPrice)} ${pool.quote.symbol}` : "—"} tone="down" />
         <Row k="Max slippage vs TWAP" v="5%" />
-        <Row k="Payout" v="native MON" />
+        <Row k="Payout" v={pool.quote.symbol === "WMON" ? "native MON" : pool.quote.symbol} />
         <Row k="Keeper fee" v="0.30%" />
       </div>
       <ApprovalGate
@@ -206,10 +207,11 @@ export function TakeProfitForm() {
 
   const amountIn = balance !== undefined ? (balance * BigInt(pct)) / 100n : 0n;
   const triggerPrice = useMemo(() => {
-    if (!token || !live) return null;
-    const { triggerTick } = computeTrigger("tp", live.tick, mult, token.address, ADDRESSES.WMON);
-    return tickToExecutionPrice(triggerTick, token.address, ADDRESSES.WMON, token.decimals, 18);
-  }, [token, live, mult]);
+    if (!token || !live || !pool) return null;
+    const q = pool.quote;
+    const { triggerTick } = computeTrigger("tp", live.tick, mult, token.address, q.address);
+    return tickToExecutionPrice(triggerTick, token.address, q.address, token.decimals, q.decimals);
+  }, [token, live, mult, pool]);
 
   if (!token || !pool) return null;
 
@@ -231,9 +233,9 @@ export function TakeProfitForm() {
       <PctOfBalance balance={balance} decimals={token.decimals} pct={pct} setPct={setPct} />
       <div className="rounded border border-line bg-bg p-2">
         <Row k="Sell" v={`${fmtAmount(amountIn, token.decimals)} ${token.symbol}`} />
-        <Row k="Trigger price" v={triggerPrice ? `${fmtPrice(triggerPrice)} WMON` : "—"} tone="up" />
+        <Row k="Trigger price" v={triggerPrice ? `${fmtPrice(triggerPrice)} ${pool.quote.symbol}` : "—"} tone="up" />
         <Row k="Guaranteed min fill" v="ask price (minOut IS the trigger)" />
-        <Row k="Payout" v="native MON" />
+        <Row k="Payout" v={pool.quote.symbol === "WMON" ? "native MON" : pool.quote.symbol} />
         <Row k="Keeper fee" v="0.30%" />
       </div>
       <ApprovalGate

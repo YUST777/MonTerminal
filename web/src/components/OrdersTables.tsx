@@ -74,14 +74,23 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
             {orders.map((o) => {
               const isSl = o.kind === KIND.StopLoss;
               const isThisMarket =
-                token && o.tokenIn.toLowerCase() === token.address.toLowerCase();
+                token &&
+                pool &&
+                o.tokenIn.toLowerCase() === token.address.toLowerCase() &&
+                o.tokenOut.toLowerCase() === pool.quote.address.toLowerCase();
               const trigPrice =
-                isThisMarket && token
-                  ? tickToExecutionPrice(o.triggerTick, token.address, ADDRESSES.WMON, token.decimals, 18)
+                isThisMarket && token && pool
+                  ? tickToExecutionPrice(
+                      o.triggerTick,
+                      token.address,
+                      pool.quote.address,
+                      token.decimals,
+                      pool.quote.decimals,
+                    )
                   : null;
               const dist =
-                isThisMarket && live && token
-                  ? distanceToTriggerPct(live.tick, o.triggerTick, token.address, ADDRESSES.WMON)
+                isThisMarket && live && token && pool
+                  ? distanceToTriggerPct(live.tick, o.triggerTick, token.address, pool.quote.address)
                   : null;
               return (
                 <tr key={o.orderId.toString()} className="border-b border-line/50 hover:bg-raised/50">
@@ -126,7 +135,19 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
 }
 
 export function OrderHistoryTable({ orders }: { orders: UserOrder[] }) {
-  const { token } = useTerminal();
+  const { pool } = useTerminal();
+
+  /** amountOut is denominated in tokenOut — resolve its decimals/symbol. */
+  const received = (o: UserOrder) => {
+    const net = (o.amountOut ?? 0n) - (o.keeperFee ?? 0n);
+    const out = o.tokenOut.toLowerCase();
+    if (pool && out === pool.quote.address.toLowerCase()) {
+      const native = pool.quote.symbol === "WMON";
+      return `${fmtAmount(net, pool.quote.decimals)} ${native ? "MON" : pool.quote.symbol}`;
+    }
+    if (out === ADDRESSES.WMON.toLowerCase()) return `${fmtAmount(net, 18)} MON`;
+    return `${fmtAmount(net, 18)} ${shortHash(o.tokenOut)}`;
+  };
   return (
     <div className="flex min-h-0 flex-col">
       <div className="border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold">
@@ -151,15 +172,7 @@ export function OrderHistoryTable({ orders }: { orders: UserOrder[] }) {
                   <Td tone="muted">{o.orderId.toString()}</Td>
                   <Td tone={o.kind === KIND.StopLoss ? "down" : "up"}>{kindLabel(o)}</Td>
                   <Td tone={executed ? "up" : "muted"}>{executed ? "Executed" : "Cancelled"}</Td>
-                  <Td>
-                    {executed && o.amountOut !== undefined
-                      ? `${fmtAmount(o.amountOut - (o.keeperFee ?? 0n), 18)} ${
-                          token && o.tokenOut.toLowerCase() !== token.address.toLowerCase()
-                            ? "WMON"
-                            : (token?.symbol ?? "")
-                        }`
-                      : "—"}
-                  </Td>
+                  <Td>{executed && o.amountOut !== undefined ? received(o) : "—"}</Td>
                   <Td>
                     {(o.closedTx ?? o.placedTx) && (
                       <a

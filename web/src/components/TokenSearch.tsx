@@ -14,7 +14,7 @@ export function TokenSearch() {
     if (!data) return;
     setMarket(data.token, data.pool);
     setQuery("");
-    push("info", `Loaded ${data.token.symbol}/WMON (${data.pool.fee / 10_000}% pool)`);
+    push("info", `Loaded ${data.token.symbol}/${data.pool.quote.symbol} (${data.pool.fee / 10_000}% pool)`);
   };
 
   return (
@@ -39,7 +39,9 @@ export function TokenSearch() {
                 <span className="font-semibold">{data.token.symbol}</span>
                 <span className="ml-2 text-muted">{data.token.name}</span>
               </span>
-              <span className="text-muted">{data.pool.fee / 10_000}% pool</span>
+              <span className="text-muted">
+                /{data.pool.quote.symbol} · {data.pool.fee / 10_000}% pool
+              </span>
             </button>
           )}
         </div>

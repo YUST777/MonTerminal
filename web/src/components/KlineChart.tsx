@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { dispose, init, LineType, type Chart } from "klinecharts";
-import { tickToExecutionPrice, ADDRESSES } from "@monolimit/shared";
+import { tickToExecutionPrice } from "@monolimit/shared";
 import { useCandles } from "../hooks/market.ts";
 import type { Timeframe } from "../lib/gecko.ts";
 import { useTerminal } from "../state/terminal.ts";
@@ -71,7 +71,7 @@ export function KlineChart() {
   // Overlay open-order trigger lines for the selected market
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart || !token) return;
+    if (!chart || !token || !pool) return;
     for (const id of overlayIds.current) chart.removeOverlay({ id });
     overlayIds.current = [];
     if (!orders) return;
@@ -84,11 +84,12 @@ export function KlineChart() {
       if (!involvesToken) continue;
 
       // Trigger price expressed as TOKEN priced in WMON (chart currency=token).
+      const q = pool.quote;
       const sellingToken = o.tokenIn.toLowerCase() === token.address.toLowerCase();
       const price = sellingToken
-        ? tickToExecutionPrice(o.triggerTick, token.address, ADDRESSES.WMON, token.decimals, 18)
+        ? tickToExecutionPrice(o.triggerTick, token.address, q.address, token.decimals, q.decimals)
         : 1 /
-          tickToExecutionPrice(o.triggerTick, ADDRESSES.WMON, token.address, 18, token.decimals);
+          tickToExecutionPrice(o.triggerTick, q.address, token.address, q.decimals, token.decimals);
 
       const isSl = o.kind === KIND.StopLoss;
       const id = chart.createOverlay({
@@ -105,7 +106,7 @@ export function KlineChart() {
       });
       if (typeof id === "string") overlayIds.current.push(id);
     }
-  }, [orders, token]);
+  }, [orders, token, pool]);
 
   return (
     <div className="flex h-full flex-col">

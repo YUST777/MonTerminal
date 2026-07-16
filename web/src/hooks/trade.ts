@@ -52,7 +52,8 @@ export function buildOrderParams(
   currentTick: number,
 ) {
   const tokenIn = token.address;
-  const tokenOut = ADDRESSES.WMON;
+  const tokenOut = pool.quote.address;
+  const isWmonOut = tokenOut.toLowerCase() === ADDRESSES.WMON.toLowerCase();
   const { triggerTick } = computeTrigger(draft.kind, currentTick, draft.multiple, tokenIn, tokenOut);
 
   // TP: minAmountOut IS the trigger — full quote at the trigger tick.
@@ -73,7 +74,8 @@ export function buildOrderParams(
     expiry: draft.expiry ?? 0,
     keeperFeeBps: draft.keeperFeeBps ?? 30,
     kind: draft.kind === "tp" ? 0 : 1,
-    unwrapToNative: draft.unwrapToNative ?? true,
+    // native-MON payout is only possible when the pool quotes in WMON
+    unwrapToNative: isWmonOut && (draft.unwrapToNative ?? true),
   };
 }
 

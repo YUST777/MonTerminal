@@ -15,7 +15,7 @@ export function TokenHeader() {
       <div>
         <div className="text-lg font-semibold leading-tight">
           {token.symbol}
-          <span className="text-muted">/WMON</span>
+          <span className="text-muted">/{pool.quote.symbol}</span>
         </div>
         <a
           href={`https://monadscan.com/token/${token.address}`}
@@ -26,7 +26,7 @@ export function TokenHeader() {
           {shortAddr(token.address)}
         </a>
       </div>
-      <Stat label="Price (WMON)" value={live ? fmtPrice(live.price) : "—"} />
+      <Stat label={`Price (${pool.quote.symbol})`} value={live ? fmtPrice(live.price) : "—"} />
       <Stat
         label="Price (USD)"
         value={stats?.priceUsd != null ? `$${fmtPrice(stats.priceUsd)}` : "—"}
