@@ -1,6 +1,7 @@
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { BridgePage } from "./components/bridge/BridgePage.tsx";
 import { HomePage } from "./components/home/HomePage.tsx";
+import { PortfolioPage } from "./components/portfolio/PortfolioPage.tsx";
 import { KlineChart } from "./components/KlineChart.tsx";
 import { MarketBar } from "./components/MarketBar.tsx";
 import { NetworkGuard } from "./components/NetworkGuard.tsx";
@@ -34,18 +35,22 @@ export default function App() {
   }
 
   const onBridge = path === "/bridge";
+  const onPortfolio = path === "/portfolio";
+  const fullPage = onBridge || onPortfolio;
 
   return (
     <div className="flex h-screen flex-col bg-bg text-fg">
       <NetworkGuard />
       <TopNav />
-      {!onBridge && <MarketBar />}
-      {!onBridge && <TokenHeader />}
+      {!fullPage && <MarketBar />}
+      {!fullPage && <TokenHeader />}
 
       {/* main */}
       <div className="min-h-0 flex-1">
         {onBridge ? (
           <BridgePage />
+        ) : onPortfolio ? (
+          <PortfolioPage />
         ) : token ? (
           <PanelGroup direction="horizontal">
             <Panel defaultSize={77} minSize={50}>

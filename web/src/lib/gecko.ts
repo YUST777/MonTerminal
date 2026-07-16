@@ -140,6 +140,9 @@ export interface TopPool {
   /** base-token logo from GeckoTerminal's `include=base_token` sideload */
   imageUrl: string | null;
   createdAtSec: number | null;
+  /** base-token name + decimals from the same sideload (portfolio pricing) */
+  baseName: string | null;
+  baseDecimals: number | null;
 }
 
 /** Map of sideloaded `included` resources (base tokens) keyed by gecko id. */
@@ -184,6 +187,10 @@ function parsePoolRow(p: any, included?: IncludedMap): TopPool | null {
     fdvUsd: p.attributes?.fdv_usd ? Number(p.attributes.fdv_usd) : null,
     imageUrl: image.startsWith("http") && !image.includes("missing.png") ? image : null,
     createdAtSec: Number.isFinite(created) ? Math.floor(created / 1000) : null,
+    baseName: baseAttrs?.name ? String(baseAttrs.name) : null,
+    baseDecimals: Number.isFinite(Number(baseAttrs?.decimals))
+      ? Number(baseAttrs.decimals)
+      : null,
   };
 }
 
@@ -229,4 +236,24 @@ export async function fetchTrendingPools(): Promise<TopPool[]> {
 /** Freshly created Monad pools — home "New pairs" tab. */
 export async function fetchNewPools(pages = 3): Promise<TopPool[]> {
   return fetchPoolPages("/networks/monad/new_pools?", pages);
+}
+
+/**
+ * Batch USD prices for tokens without a top-pools row (portfolio fallback).
+ * Endpoint caps at 30 addresses per call.
+ */
+export async function fetchSimplePrices(addresses: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const unique = [...new Set(addresses.map((a) => a.toLowerCase()))];
+  for (let i = 0; i < unique.length; i += 30) {
+    const batch = unique.slice(i, i + 30);
+    const res = await fetch(`${BASE}/simple/networks/monad/token_price/${batch.join(",")}`);
+    if (!res.ok) continue;
+    const prices = (await res.json())?.data?.attributes?.token_prices ?? {};
+    for (const [addr, v] of Object.entries(prices)) {
+      const n = Number(v);
+      if (Number.isFinite(n)) map.set(addr.toLowerCase(), n);
+    }
+  }
+  return map;
 }

@@ -48,7 +48,7 @@ export function orderKey(o: Pick<UserOrder, "book" | "orderId">) {
  */
 const LOG_PAGE = 50_000n;
 
-const logClient = createPublicClient({
+export const logClient = createPublicClient({
   chain: monad,
   transport: fallback([
     http("https://rpc1.monad.xyz", { retryCount: 3, retryDelay: 800 }),
