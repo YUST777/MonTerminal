@@ -83,6 +83,13 @@ export function KlineChart() {
     const key = `${pool?.address}:${tf}`;
     if (seriesKey.current !== key) {
       seriesKey.current = key;
+      // klinecharts defaults to 2-decimal prices, which flattens sub-cent
+      // tokens (axis ticks of 0.01 dwarf the real range). Scale precision to
+      // ~5 significant digits of the latest close.
+      const close = mapped[mapped.length - 1]?.close ?? 0;
+      const precision =
+        close > 0 ? Math.min(12, Math.max(2, 5 - Math.ceil(Math.log10(close)))) : 2;
+      chart.setPriceVolumePrecision(precision, 0);
       chart.applyNewData(mapped);
       return;
     }
