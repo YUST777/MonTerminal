@@ -46,8 +46,31 @@ const erc20 = (
   logo: string,
 ): BridgeToken => ({ symbol, name, address, decimals, logo });
 
-/** Bridgeable tokens per origin chain id (native gas token always first). */
+/**
+ * Static fallback token list per chain id (native gas token always first).
+ * The picker fetches the live list from Relay's currencies API and only
+ * falls back to these while loading / offline.
+ */
 export const BRIDGE_TOKENS: Record<number, BridgeToken[]> = {
+  // Monad (Relay verified list — addresses from api.relay.link/currencies)
+  143: [
+    native("MON", "Monad", chainLogo("monad")),
+    erc20("WMON", "Wrapped Monad", "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A", 18, chainLogo("monad")),
+    erc20(
+      "USDC",
+      "USD Coin",
+      "0x754704Bc059F8C67012fED69BC8a327a5AAfb603",
+      6,
+      LOGO.USDC,
+    ),
+    erc20(
+      "mUSD",
+      "MetaMask USD",
+      "0xacA92E438df0B2401fF60dA7E4337B687a2435DA",
+      6,
+      "https://coin-images.coingecko.com/coins/images/68451/large/MetaMask-mUSD-Icon-200x200.png",
+    ),
+  ],
   // Ethereum
   1: [
     native("ETH", "Ether", LOGO.ETH),

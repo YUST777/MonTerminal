@@ -7,6 +7,9 @@ import type { Address } from "viem";
 /** Origin chains supported by the in-app Relay bridge. */
 export const BRIDGE_ORIGINS = [mainnet, base, arbitrum, optimism, bsc, polygon] as const;
 
+/** Every chain pickable in the bridge (Monad first — it's home). */
+export const BRIDGE_CHAINS = [monad, ...BRIDGE_ORIGINS] as const;
+
 export const wagmiConfig = getDefaultConfig({
   appName: "MonoLimit",
   // WalletConnect cloud id — public identifier, fine to ship in a client bundle.

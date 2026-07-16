@@ -3,6 +3,7 @@
  * https://docs.relay.link — Monad is chain id 143 on api.relay.link.
  */
 import type { Address, WalletClient } from "viem";
+import type { BridgeToken } from "../config/tokens.ts";
 
 const BASE = "https://api.relay.link";
 
@@ -103,3 +104,51 @@ async function pollStatus(endpoint: string, onProgress: (msg: string) => void): 
 }
 
 export const NATIVE = "0x0000000000000000000000000000000000000000";
+
+interface RelayCurrency {
+  chainId: number;
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  vmType: string;
+  metadata?: { logoURI?: string; verified?: boolean };
+}
+
+/**
+ * Live token list for a chain from Relay's currencies API.
+ * Without a term: the curated default list (verified list on Monad, where
+ * Relay has no default list yet). With a term: verified full-catalog search,
+ * so any bridgeable token is findable.
+ */
+export async function fetchRelayTokens(
+  chainId: number,
+  term?: string,
+): Promise<BridgeToken[]> {
+  const body: Record<string, unknown> = { chainIds: [chainId], limit: 30 };
+  if (term) {
+    body.term = term;
+    body.verified = true;
+  } else if (chainId === 143) {
+    body.verified = true;
+  } else {
+    body.defaultList = true;
+  }
+  const res = await fetch(`${BASE}/currencies/v1`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Relay currencies failed (${res.status})`);
+  const groups = (await res.json()) as RelayCurrency[][];
+  return groups
+    .flat()
+    .filter((c) => c.vmType === "evm")
+    .map((c) => ({
+      symbol: c.symbol,
+      name: c.name,
+      address: c.address as Address,
+      decimals: c.decimals,
+      logo: c.metadata?.logoURI ?? "",
+    }));
+}

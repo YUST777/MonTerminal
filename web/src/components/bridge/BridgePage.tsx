@@ -3,60 +3,76 @@ import { formatUnits, parseUnits } from "viem";
 import { useAccount, useBalance, useSwitchChain, useWalletClient } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { monad } from "@monolimit/shared";
-import { BRIDGE_ORIGINS } from "../../config/wagmi.ts";
+import { BRIDGE_CHAINS, BRIDGE_ORIGINS } from "../../config/wagmi.ts";
 import { BRIDGE_TOKENS, isNative, type BridgeToken } from "../../config/tokens.ts";
-import { executeRelaySteps, getRelayQuote, NATIVE, type RelayQuote } from "../../lib/relay.ts";
+import { executeRelaySteps, getRelayQuote, type RelayQuote } from "../../lib/relay.ts";
 import { useToasts } from "../Toasts.tsx";
-import { ChainIcon, TokenImg, TokenSelectModal, type Origin } from "./ChainSelect.tsx";
+import { ChainIcon, TokenImg, TokenSelectModal, type BridgeChain } from "./ChainSelect.tsx";
+
+interface Side {
+  chain: BridgeChain;
+  token: BridgeToken;
+}
 
 /**
- * /bridge — Uniswap-style bridge: native gas token on the origin chain →
- * native MON on Monad, quoted and filled through the Relay API. The wallet
- * is switched to the origin chain for the deposit tx, then Relay fills on
- * Monad in seconds.
+ * /bridge — any token on any supported chain → any token on any other,
+ * quoted and filled through the Relay API (bridge, swap, or both in one).
+ * Defaults to ETH on Base → native MON on Monad.
  */
 export function BridgePage() {
   const { address } = useAccount();
   const { switchChainAsync } = useSwitchChain();
-  const [origin, setOrigin] = useState<Origin>(BRIDGE_ORIGINS[1]); // Base default
-  const [payToken, setPayToken] = useState<BridgeToken>(BRIDGE_TOKENS[BRIDGE_ORIGINS[1].id]![0]!);
-  const [selectOpen, setSelectOpen] = useState(false);
+  const [from, setFrom] = useState<Side>({
+    chain: BRIDGE_ORIGINS[1],
+    token: BRIDGE_TOKENS[BRIDGE_ORIGINS[1].id]![0]!,
+  });
+  const [to, setTo] = useState<Side>({
+    chain: BRIDGE_CHAINS[0], // Monad
+    token: BRIDGE_TOKENS[monad.id]![0]!, // native MON
+  });
+  const [selecting, setSelecting] = useState<"from" | "to" | null>(null);
   const [amountText, setAmountText] = useState("");
   const [quote, setQuote] = useState<RelayQuote | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const { data: originBalance } = useBalance({
+  const { data: fromBalance } = useBalance({
     address,
-    chainId: origin.id,
-    token: isNative(payToken) ? undefined : payToken.address,
+    chainId: from.chain.id,
+    token: isNative(from.token) ? undefined : from.token.address,
   });
-  const { data: monBalance } = useBalance({ address, chainId: monad.id });
-  const { data: walletClient } = useWalletClient({ chainId: origin.id });
+  const { data: toBalance } = useBalance({
+    address,
+    chainId: to.chain.id,
+    token: isNative(to.token) ? undefined : to.token.address,
+  });
+  const { data: walletClient } = useWalletClient({ chainId: from.chain.id });
   const push = useToasts((s) => s.push);
   const queryClient = useQueryClient();
 
-  const symbol = payToken.symbol;
   const amount = (() => {
     try {
-      return parseUnits(amountText, payToken.decimals);
+      return parseUnits(amountText, from.token.decimals);
     } catch {
       return 0n;
     }
   })();
-  const insufficient = !!originBalance && amount > originBalance.value;
+  const insufficient = !!fromBalance && amount > fromBalance.value;
+  const sameAsset =
+    from.chain.id === to.chain.id &&
+    from.token.address.toLowerCase() === to.token.address.toLowerCase();
 
-  // Re-quote whenever origin/amount changes (debounced).
+  // Re-quote whenever the pair/amount changes (debounced).
   useEffect(() => {
     setQuote(null);
-    if (!address || amount === 0n || insufficient) return;
+    if (!address || amount === 0n || insufficient || sameAsset) return;
     const t = setTimeout(async () => {
       try {
         setStatus("Getting quote…");
         const q = await getRelayQuote({
           user: address,
-          originChainId: origin.id,
-          destinationChainId: monad.id,
-          originCurrency: payToken.address, // zero address = native
-          destinationCurrency: NATIVE, // native MON
+          originChainId: from.chain.id,
+          destinationChainId: to.chain.id,
+          originCurrency: from.token.address, // zero address = native
+          destinationCurrency: to.token.address,
           amount: amount.toString(),
           recipient: address,
         });
@@ -70,22 +86,47 @@ export function BridgePage() {
     }, 500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, origin.id, payToken.address, amount.toString(), insufficient]);
+  }, [
+    address,
+    from.chain.id,
+    from.token.address,
+    to.chain.id,
+    to.token.address,
+    amount.toString(),
+    insufficient,
+    sameAsset,
+  ]);
+
+  const flip = () => {
+    setFrom(to);
+    setTo(from);
+    setAmountText("");
+    setQuote(null);
+  };
+
+  const isSwap = from.chain.id === to.chain.id;
 
   const bridge = async () => {
     if (!quote || !address) return;
     try {
-      setStatus(`Switching to ${origin.name}…`);
-      await switchChainAsync({ chainId: origin.id });
+      setStatus(`Switching to ${from.chain.name}…`);
+      await switchChainAsync({ chainId: from.chain.id });
       if (!walletClient) throw new Error("wallet client unavailable — try again");
       await executeRelaySteps(quote, walletClient, setStatus);
-      push("success", "Bridged — MON has landed on Monad");
+      push(
+        "success",
+        isSwap
+          ? `Swapped — ${to.token.symbol} is in your wallet`
+          : `Bridged — ${to.token.symbol} has landed on ${to.chain.name}`,
+      );
       queryClient.invalidateQueries();
       setAmountText("");
       setQuote(null);
-      // hop the wallet back home
-      setStatus("Switching back to Monad…");
-      await switchChainAsync({ chainId: monad.id }).catch(() => {});
+      if (from.chain.id !== monad.id) {
+        // hop the wallet back home
+        setStatus("Switching back to Monad…");
+        await switchChainAsync({ chainId: monad.id }).catch(() => {});
+      }
     } catch (err) {
       push("error", (err as Error).message.split("\n")[0]!.slice(0, 140));
     } finally {
@@ -103,9 +144,18 @@ export function BridgePage() {
 
   const cta = !address
     ? "Connect wallet"
-    : insufficient
-      ? `Insufficient ${symbol}`
-      : (status ?? (quote ? "Bridge" : amount === 0n ? "Enter an amount" : "Getting quote…"));
+    : sameAsset
+      ? "Select different tokens"
+      : insufficient
+        ? `Insufficient ${from.token.symbol}`
+        : (status ??
+          (quote
+            ? isSwap
+              ? "Swap"
+              : "Bridge"
+            : amount === 0n
+              ? "Enter an amount"
+              : "Getting quote…"));
 
   return (
     <div className="h-full overflow-y-auto">
@@ -124,31 +174,18 @@ export function BridgePage() {
               autoFocus
               className="w-full min-w-0 bg-transparent text-[32px] font-medium tabular-nums outline-none placeholder:text-muted"
             />
-            <button
-              onClick={() => setSelectOpen(true)}
-              className="flex shrink-0 items-center gap-2 rounded-full bg-overlay py-1.5 pl-1.5 pr-2.5 text-sm font-semibold ring-1 ring-line transition-colors hover:ring-brand"
-            >
-              <span className="relative">
-                <TokenImg token={payToken} size="size-6" />
-                {/* chain badge — which network this token lives on */}
-                <span className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-overlay">
-                  <ChainIcon chain={origin} size="size-3" />
-                </span>
-              </span>
-              {symbol}
-              <Chevron />
-            </button>
+            <TokenButton side={from} onClick={() => setSelecting("from")} />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted">
             <span className="tabular-nums">{inUsd ? `$${Number(inUsd).toFixed(2)}` : "\u00a0"}</span>
             <span className="tabular-nums">
-              {balFmt(originBalance) != null && (
+              {balFmt(fromBalance) != null && (
                 <>
-                  {balFmt(originBalance)} {symbol}
-                  {originBalance!.value > 0n && (
+                  {balFmt(fromBalance)} {from.token.symbol}
+                  {fromBalance!.value > 0n && (
                     <button
                       onClick={() =>
-                        setAmountText(formatUnits(originBalance!.value, originBalance!.decimals))
+                        setAmountText(formatUnits(fromBalance!.value, fromBalance!.decimals))
                       }
                       className="ml-1.5 rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand hover:bg-brand/25"
                     >
@@ -161,11 +198,15 @@ export function BridgePage() {
           </div>
         </div>
 
-        {/* arrow divider — overlaps both cards, uniswap style */}
+        {/* flip button — overlaps both cards, uniswap style */}
         <div className="relative z-10 -my-3.5 flex justify-center">
-          <span className="flex size-9 items-center justify-center rounded-xl border-4 border-bg bg-overlay text-muted">
+          <button
+            onClick={flip}
+            aria-label="Swap direction"
+            className="flex size-9 items-center justify-center rounded-xl border-4 border-bg bg-overlay text-muted transition-all duration-150 hover:text-fg active:scale-90"
+          >
             <ArrowDown />
-          </span>
+          </button>
         </div>
 
         {/* Buy card */}
@@ -179,17 +220,14 @@ export function BridgePage() {
             >
               {outFormatted ? Number(outFormatted).toFixed(4) : "0"}
             </span>
-            <span className="flex shrink-0 items-center gap-2 rounded-full bg-overlay py-1.5 pl-1.5 pr-3 text-sm font-semibold ring-1 ring-line">
-              <ChainIcon chain={monad} size="size-6" />
-              MON
-            </span>
+            <TokenButton side={to} onClick={() => setSelecting("to")} />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted">
             <span className="tabular-nums">
               {outUsd ? `$${Number(outUsd).toFixed(2)}` : "\u00a0"}
             </span>
             <span className="tabular-nums">
-              {balFmt(monBalance) != null ? `${balFmt(monBalance)} MON` : "\u00a0"}
+              {balFmt(toBalance) != null ? `${balFmt(toBalance)} ${to.token.symbol}` : "\u00a0"}
             </span>
           </div>
         </div>
@@ -197,7 +235,7 @@ export function BridgePage() {
         {/* CTA */}
         <button
           onClick={bridge}
-          disabled={!quote || !!status || insufficient}
+          disabled={!quote || !!status || insufficient || sameAsset}
           className="monad-gradient mt-3 w-full rounded-2xl py-3.5 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {cta}
@@ -209,14 +247,16 @@ export function BridgePage() {
             <div className="flex justify-between">
               <span>Rate</span>
               <span className="tabular-nums text-fg">
-                1 {symbol} ≈ {Number(rate).toFixed(2)} MON
+                1 {from.token.symbol} ≈ {Number(rate).toFixed(2)} {to.token.symbol}
               </span>
             </div>
           )}
           <div className="flex justify-between">
             <span>Route</span>
             <span className="text-fg">
-              {origin.name} → Monad · Relay
+              {isSwap
+                ? `${from.chain.name} · Relay`
+                : `${from.chain.name} → ${to.chain.name} · Relay`}
             </span>
           </div>
           <div className="flex justify-between">
@@ -226,19 +266,38 @@ export function BridgePage() {
         </div>
       </div>
 
-      {selectOpen && (
+      {selecting && (
         <TokenSelectModal
-          chain={origin}
-          token={payToken}
+          chain={selecting === "from" ? from.chain : to.chain}
+          token={selecting === "from" ? from.token : to.token}
           onSelect={(c, t) => {
-            setOrigin(c);
-            setPayToken(t);
-            setSelectOpen(false);
+            if (selecting === "from") setFrom({ chain: c, token: t });
+            else setTo({ chain: c, token: t });
+            setSelecting(null);
           }}
-          onClose={() => setSelectOpen(false)}
+          onClose={() => setSelecting(null)}
         />
       )}
     </div>
+  );
+}
+
+function TokenButton({ side, onClick }: { side: Side; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex shrink-0 items-center gap-2 rounded-full bg-overlay py-1.5 pl-1.5 pr-2.5 text-sm font-semibold ring-1 ring-line transition-colors hover:ring-brand"
+    >
+      <span className="relative">
+        <TokenImg token={side.token} size="size-6" />
+        {/* chain badge — which network this token lives on */}
+        <span className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-overlay">
+          <ChainIcon chain={side.chain} size="size-3" />
+        </span>
+      </span>
+      {side.token.symbol}
+      <Chevron />
+    </button>
   );
 }
 

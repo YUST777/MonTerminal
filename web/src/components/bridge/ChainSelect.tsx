@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 import { useAccount, useBalance } from "wagmi";
-import { BRIDGE_ORIGINS } from "../../config/wagmi.ts";
+import { BRIDGE_CHAINS } from "../../config/wagmi.ts";
 import { BRIDGE_TOKENS, isNative, type BridgeToken } from "../../config/tokens.ts";
+import { fetchRelayTokens } from "../../lib/relay.ts";
 
-export type Origin = (typeof BRIDGE_ORIGINS)[number];
+export type BridgeChain = (typeof BRIDGE_CHAINS)[number];
 
 /**
  * High-quality official chain logos from the TrustWallet assets repo
@@ -58,7 +60,7 @@ export function TokenImg({
   size?: string;
 }) {
   const [broken, setBroken] = useState(false);
-  if (!broken) {
+  if (token.logo && !broken) {
     return (
       <img
         src={token.logo}
@@ -89,21 +91,46 @@ export function TokenSelectModal({
   onSelect,
   onClose,
 }: {
-  chain: Origin;
+  chain: BridgeChain;
   token: BridgeToken;
-  onSelect: (chain: Origin, token: BridgeToken) => void;
+  onSelect: (chain: BridgeChain, token: BridgeToken) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [activeChain, setActiveChain] = useState<Origin>(chain);
+  const [activeChain, setActiveChain] = useState<BridgeChain>(chain);
+
+  // Live curated list from Relay; static registry fills in while loading.
+  const { data: liveList } = useQuery({
+    queryKey: ["relay-tokens", activeChain.id],
+    queryFn: () => fetchRelayTokens(activeChain.id),
+    staleTime: 5 * 60_000,
+  });
+
+  // Full-catalog search: any token Relay can bridge is findable by name.
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+  const { data: searched } = useQuery({
+    queryKey: ["relay-token-search", activeChain.id, debounced],
+    queryFn: () => fetchRelayTokens(activeChain.id, debounced),
+    enabled: debounced.length >= 2,
+    staleTime: 5 * 60_000,
+  });
 
   const tokens = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (BRIDGE_TOKENS[activeChain.id] ?? []).filter(
+    const base = liveList ?? BRIDGE_TOKENS[activeChain.id] ?? [];
+    const local = base.filter(
       (t) =>
         !q || t.symbol.toLowerCase().includes(q) || t.name.toLowerCase().includes(q),
     );
-  }, [activeChain.id, query]);
+    if (q.length < 2 || !searched) return local;
+    // merge remote catalog hits under the curated matches, deduped by address
+    const seen = new Set(local.map((t) => t.address.toLowerCase()));
+    return [...local, ...searched.filter((t) => !seen.has(t.address.toLowerCase()))];
+  }, [activeChain.id, query, liveList, searched]);
 
   return (
     <Dialog.Root open onOpenChange={(o) => !o && onClose()}>
@@ -143,7 +170,7 @@ export function TokenSelectModal({
 
           {/* chain strip — pick the origin network */}
           <div className="mb-5 flex items-center gap-2">
-            {BRIDGE_ORIGINS.map((c) => (
+            {BRIDGE_CHAINS.map((c) => (
               <button
                 key={c.id}
                 title={c.name}
@@ -188,7 +215,7 @@ function TokenCard({
   active,
   onPick,
 }: {
-  chain: Origin;
+  chain: BridgeChain;
   token: BridgeToken;
   active: boolean;
   onPick: () => void;
