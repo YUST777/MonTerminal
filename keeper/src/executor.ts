@@ -1,4 +1,3 @@
-import type { Address } from "viem";
 import { erc20Abi } from "viem";
 import { LIMIT_ORDER_BOOK_ABI } from "@monolimit/shared";
 import type { Clients } from "./clients.ts";
@@ -19,7 +18,6 @@ const BACKOFF: Record<string, number> = {
 };
 
 export class Executor {
-  private nonceQueue = new NonceQueue();
   private backoffUntil = new Map<bigint, number>();
   private inFlight = new Set<bigint>();
 
@@ -28,6 +26,8 @@ export class Executor {
     private config: Config,
     private store: OrderStore,
     private log: Logger,
+    // one wallet serves every market's book — the nonce queue is shared
+    private nonceQueue: NonceQueue,
   ) {}
 
   /** Attempt execution of a pre-filtered order. Never throws. */
@@ -48,7 +48,7 @@ export class Executor {
 
   private async execute(order: StoredOrder, spotTick: number): Promise<void> {
     const { publicClient, walletClient, account } = this.clients;
-    const book = this.config.BOOK_ADDRESS as Address;
+    const book = order.book;
     const id = order.orderId;
 
     // Cheap pre-flight: maker still has balance + allowance? (multicalled)

@@ -9,7 +9,7 @@ import {
   LIMIT_ORDER_BOOK_ABI,
 } from "@monolimit/shared";
 import { BOOK_ADDRESS } from "../config/wagmi.ts";
-import type { PoolInfo, TokenMeta } from "../state/terminal.ts";
+import { useTerminal, type PoolInfo, type TokenMeta } from "../state/terminal.ts";
 import { useToasts } from "../components/Toasts.tsx";
 
 export function useTokenBalance(token: Address | undefined) {
@@ -23,14 +23,14 @@ export function useTokenBalance(token: Address | undefined) {
   });
 }
 
-export function useAllowance(token: Address | undefined) {
+export function useAllowance(token: Address | undefined, book: Address | undefined) {
   const { address } = useAccount();
   return useReadContract({
     address: token,
     abi: erc20Abi,
     functionName: "allowance",
-    args: address ? [address, BOOK_ADDRESS] : undefined,
-    query: { enabled: !!token && !!address, refetchInterval: 5_000 },
+    args: address && book ? [address, book] : undefined,
+    query: { enabled: !!token && !!address && !!book, refetchInterval: 5_000 },
   });
 }
 
@@ -79,13 +79,16 @@ export function buildOrderParams(
   };
 }
 
-/** Approve (if needed) then placeOrders — the two-step "ApprovalGate" flow. */
+/** Approve (if needed) then placeOrders — the two-step "ApprovalGate" flow.
+ *  Orders go to the selected pool's market book (Uniswap v3 / Capricorn / …). */
 export function usePlaceOrders(token: TokenMeta | null) {
   const { writeContractAsync, isPending } = useWriteContract();
   const client = usePublicClient();
   const queryClient = useQueryClient();
   const push = useToasts((s) => s.push);
-  const { data: allowance, refetch: refetchAllowance } = useAllowance(token?.address);
+  const pool = useTerminal((s) => s.pool);
+  const book = pool?.market.book ?? BOOK_ADDRESS;
+  const { data: allowance, refetch: refetchAllowance } = useAllowance(token?.address, book);
 
   const needsApproval = (total: bigint) => allowance === undefined || allowance < total;
 
@@ -95,7 +98,7 @@ export function usePlaceOrders(token: TokenMeta | null) {
       address: token.address,
       abi: erc20Abi,
       functionName: "approve",
-      args: [BOOK_ADDRESS, maxUint256],
+      args: [book, maxUint256],
     });
     await client!.waitForTransactionReceipt({ hash });
     await refetchAllowance();
@@ -104,7 +107,7 @@ export function usePlaceOrders(token: TokenMeta | null) {
 
   const place = async (params: ReturnType<typeof buildOrderParams>[]) => {
     const hash = await writeContractAsync({
-      address: BOOK_ADDRESS,
+      address: book,
       abi: LIMIT_ORDER_BOOK_ABI,
       functionName: "placeOrders",
       args: [params],
@@ -124,9 +127,9 @@ export function useCancelOrders() {
   const queryClient = useQueryClient();
   const push = useToasts((s) => s.push);
 
-  const cancel = async (ids: bigint[]) => {
+  const cancel = async (ids: bigint[], book: Address) => {
     const hash = await writeContractAsync({
-      address: BOOK_ADDRESS,
+      address: book,
       abi: LIMIT_ORDER_BOOK_ABI,
       functionName: ids.length === 1 ? "cancelOrder" : "cancelOrders",
       args: ids.length === 1 ? [ids[0]!] : [ids],

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ADDRESSES, distanceToTriggerPct, tickToExecutionPrice } from "@monolimit/shared";
 import { useLivePrice } from "../hooks/market.ts";
-import { KIND, STATUS, useUserOrders, type UserOrder } from "../hooks/orders.ts";
+import { KIND, STATUS, orderKey, useUserOrders, type UserOrder } from "../hooks/orders.ts";
 import { useCancelOrders } from "../hooks/trade.ts";
 import { fmtAmount, fmtPct, fmtPrice, shortHash } from "../lib/format.ts";
 import { useTerminal } from "../state/terminal.ts";
@@ -93,7 +93,7 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
                   ? distanceToTriggerPct(live.tick, o.triggerTick, token.address, pool.quote.address)
                   : null;
               return (
-                <tr key={o.orderId.toString()} className="border-b border-line/50 hover:bg-raised/50">
+                <tr key={orderKey(o)} className="border-b border-line/50 hover:bg-raised/50">
                   <Td tone="muted">{o.orderId.toString()}</Td>
                   <Td tone={isSl ? "down" : "up"}>{kindLabel(o)}</Td>
                   <Td>
@@ -110,7 +110,7 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
                   </Td>
                   <Td>
                     <button
-                      onClick={() => cancel([o.orderId])}
+                      onClick={() => cancel([o.orderId], o.book)}
                       disabled={isPending}
                       className="rounded border border-line px-2 py-0.5 text-muted hover:border-down hover:text-down disabled:opacity-40"
                     >
@@ -168,7 +168,7 @@ export function OrderHistoryTable({ orders }: { orders: UserOrder[] }) {
             {orders.map((o) => {
               const executed = o.status === STATUS.Executed;
               return (
-                <tr key={o.orderId.toString()} className="border-b border-line/50 hover:bg-raised/50">
+                <tr key={orderKey(o)} className="border-b border-line/50 hover:bg-raised/50">
                   <Td tone="muted">{o.orderId.toString()}</Td>
                   <Td tone={o.kind === KIND.StopLoss ? "down" : "up"}>{kindLabel(o)}</Td>
                   <Td tone={executed ? "up" : "muted"}>{executed ? "Executed" : "Cancelled"}</Td>

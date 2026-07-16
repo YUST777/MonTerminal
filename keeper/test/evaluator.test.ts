@@ -5,6 +5,7 @@ import type { StoredOrder } from "../src/orderStore.ts";
 function order(overrides: Partial<StoredOrder> = {}): StoredOrder {
   return {
     orderId: 1n,
+    book: "0x4000000000000000000000000000000000000004",
     maker: "0x0000000000000000000000000000000000000001",
     tokenIn: "0x1000000000000000000000000000000000000001",
     tokenOut: "0x2000000000000000000000000000000000000002",

@@ -27,7 +27,7 @@ Three pieces, one pnpm monorepo:
 
 | Package | What |
 |---|---|
-| [`contracts/`](contracts/) | Foundry — `LimitOrderBook.sol` + mainnet-fork test suite (27 tests) |
+| [`contracts/`](contracts/) | Foundry — `LimitOrderBook.sol` + `ForkRouter.sol` + mainnet-fork test suite (33 tests) |
 | [`keeper/`](keeper/) | Node 22 + viem bot — polls every 1s, simulates, executes when profitable |
 | [`web/`](web/) | Vite + React 19 + Tailwind v4 dark trading terminal (chart, ladders, order dock) |
 | [`packages/shared/`](packages/shared/) | Chain def, addresses, ABI, tick/price math — unit-tested, used by web **and** keeper |
@@ -52,13 +52,23 @@ Other properties:
 - **Permissionless execution** — anyone may call `executeOrder` and earn the keeper fee (10–100 bps, default 30). MEV searchers are free backup keepers.
 - Reentrancy-guarded, CEI, balance-delta accounting (fee-on-transfer safe), native-MON payout with non-griefable WMON fallback.
 
+**Multi-DEX.** Monad meme coins pool wherever liquidity landed — Uniswap v3, Capricorn, PancakeSwap v3. The v3 forks share pool bytecode but not init-code hashes, so the canonical periphery can't route them. `ForkRouter` (~100 lines) asks the fork's own factory via `getPool` and settles the swap callback selector-agnostically (authenticity is proven by `msg.sender == factory.getPool(...)`, never by the callback name — Capricorn renamed theirs to an unrecognizable selector). One `LimitOrderBook` deployment per DEX, same bytecode; the UI and keeper pick the book from the pool's market automatically.
+
 ## Addresses (Monad mainnet, chainId 143)
+
+All Sourcify-verified.
 
 | Contract | Address |
 |---|---|
-| LimitOrderBook | [`0x595368DffF28eC08718Ca620EC9a981772628425`](https://monadscan.com/address/0x595368DffF28eC08718Ca620EC9a981772628425) (deploy block 88077155, Sourcify-verified) |
+| LimitOrderBook (Uniswap v3) | [`0x595368DffF28eC08718Ca620EC9a981772628425`](https://monadscan.com/address/0x595368DffF28eC08718Ca620EC9a981772628425) (deploy block 88077155) |
+| LimitOrderBook (Capricorn) | [`0x07E94F44c89b648a36c7cd5408b52D76880857f7`](https://monadscan.com/address/0x07E94F44c89b648a36c7cd5408b52D76880857f7) (deploy block 88086521) |
+| ForkRouter (Capricorn) | `0xd950EeB0063Ddc186b314113b199C1A675930686` |
+| LimitOrderBook (PancakeSwap v3) | [`0x1672DB600D0c0213b3971F30438482Ea2Afaf53F`](https://monadscan.com/address/0x1672DB600D0c0213b3971F30438482Ea2Afaf53F) (deploy block 88086528) |
+| ForkRouter (PancakeSwap v3) | `0x46dEc159b5B126f458f16c41E900137d6cAe3F24` |
 | WMON | `0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A` |
 | Uniswap v3 Factory | `0x204FAca1764B154221e35c0d20aBb3c525710498` |
+| Capricorn Factory | `0x6B5F564339DbAD6b780249827f2198a841FEB7F3` |
+| PancakeSwap v3 Factory | `0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865` |
 | SwapRouter02 | `0xfE31F71C1b106EAc32F1A19239c9a9A72ddfb900` |
 
 ## Running it

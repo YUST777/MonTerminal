@@ -14,6 +14,47 @@ export const ADDRESSES = {
 /** Block the LimitOrderBook was deployed in — event hydration starts here. */
 export const BOOK_DEPLOY_BLOCK = 88077155n;
 
+/**
+ * One order book per DEX. Uniswap v3 uses the canonical SwapRouter02; the v3
+ * forks (Capricorn, PancakeSwap v3) share pool bytecode but not init-code
+ * hashes, so each gets a ForkRouter + its own immutable LimitOrderBook.
+ * `dexId` matches GeckoTerminal's network-scoped dex slug.
+ */
+export interface Market {
+  dexId: string;
+  label: string;
+  factory: Address;
+  book: Address;
+  deployBlock: bigint;
+}
+
+export const MARKETS: readonly Market[] = [
+  {
+    dexId: "uniswap-v3-monad",
+    label: "Uniswap v3",
+    factory: ADDRESSES.UNISWAP_V3_FACTORY,
+    book: ADDRESSES.LIMIT_ORDER_BOOK,
+    deployBlock: BOOK_DEPLOY_BLOCK,
+  },
+  {
+    dexId: "capricorn-monad",
+    label: "Capricorn",
+    factory: "0x6B5F564339DbAD6b780249827f2198a841FEB7F3" as Address,
+    // ForkRouter 0xd950EeB0063Ddc186b314113b199C1A675930686
+    book: "0x07E94F44c89b648a36c7cd5408b52D76880857f7" as Address,
+    deployBlock: 88086521n,
+  },
+  {
+    dexId: "pancakeswap-v3-monad",
+    label: "PancakeSwap v3",
+    factory: "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865" as Address,
+    // ForkRouter 0x46dEc159b5B126f458f16c41E900137d6cAe3F24
+    book: "0x1672DB600D0c0213b3971F30438482Ea2Afaf53F" as Address,
+    deployBlock: 88086528n,
+  },
+] as const;
+
+
 /** Uniswap v3 fee tiers available on Monad. */
 export const FEE_TIERS = [100, 500, 3000, 10000] as const;
 export type FeeTier = (typeof FEE_TIERS)[number];

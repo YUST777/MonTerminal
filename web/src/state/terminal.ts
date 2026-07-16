@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Address } from "viem";
-import { ADDRESSES } from "@monolimit/shared";
+import { ADDRESSES, type Market } from "@monolimit/shared";
 
 export interface TokenMeta {
   address: Address;
@@ -16,6 +16,8 @@ export interface PoolInfo {
   tokenIsToken0: boolean;
   /** the other side of the pool (WMON, USDC, …) — prices are quoted in this */
   quote: TokenMeta;
+  /** which DEX this pool lives on — orders go to this market's book */
+  market: Market;
 }
 
 interface TerminalState {

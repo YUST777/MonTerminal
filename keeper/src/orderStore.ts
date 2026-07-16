@@ -1,6 +1,6 @@
 import type { Address, PublicClient } from "viem";
 import { parseAbi } from "viem";
-import { ADDRESSES, LIMIT_ORDER_BOOK_ABI } from "@monolimit/shared";
+import { LIMIT_ORDER_BOOK_ABI, type Market } from "@monolimit/shared";
 import type { Logger } from "./logger.ts";
 
 export const OrderKind = { TakeProfit: 0, StopLoss: 1 } as const;
@@ -8,6 +8,8 @@ export const OrderStatus = { Nonexistent: 0, Open: 1, Executed: 2, Cancelled: 3 
 
 export interface StoredOrder {
   orderId: bigint;
+  /** book the order lives in — execution goes here (ids repeat across books) */
+  book: Address;
   maker: Address;
   tokenIn: Address;
   tokenOut: Address;
@@ -31,9 +33,9 @@ const FACTORY_ABI = parseAbi([
 const LOG_PAGE = 5_000n;
 
 /**
- * In-memory open-order set, hydrated from OrderPlaced/Executed/Cancelled logs
- * (the contract's sole data feed — no separate indexer) and kept fresh with an
- * event watcher.
+ * In-memory open-order set for one market's book, hydrated from
+ * OrderPlaced/Executed/Cancelled logs (the contract's sole data feed — no
+ * separate indexer) and kept fresh with an event watcher.
  */
 export class OrderStore {
   readonly open = new Map<bigint, StoredOrder>();
@@ -42,7 +44,7 @@ export class OrderStore {
 
   constructor(
     private client: PublicClient,
-    private book: Address,
+    readonly market: Market,
     private log: Logger,
   ) {}
 
@@ -51,25 +53,28 @@ export class OrderStore {
     return [...new Set([...this.open.values()].map((o) => o.pool))];
   }
 
-  async hydrate(fromBlock: bigint): Promise<void> {
+  async hydrate(): Promise<void> {
     const latest = await this.client.getBlockNumber();
-    for (let start = fromBlock; start <= latest; start += LOG_PAGE) {
+    for (let start = this.market.deployBlock; start <= latest; start += LOG_PAGE) {
       const end = start + LOG_PAGE - 1n > latest ? latest : start + LOG_PAGE - 1n;
       const logs = await this.client.getContractEvents({
-        address: this.book,
+        address: this.market.book,
         abi: LIMIT_ORDER_BOOK_ABI,
         fromBlock: start,
         toBlock: end,
       });
       for (const log of logs) await this.apply(log.eventName, log.args as never);
     }
-    this.log.info({ openOrders: this.open.size, upToBlock: latest.toString() }, "order store hydrated");
+    this.log.info(
+      { market: this.market.label, openOrders: this.open.size, upToBlock: latest.toString() },
+      "order store hydrated",
+    );
   }
 
   watch(onChange: () => void): void {
     this.unwatchers.push(
       this.client.watchContractEvent({
-        address: this.book,
+        address: this.market.book,
         abi: LIMIT_ORDER_BOOK_ABI,
         onLogs: async (logs) => {
           for (const log of logs) await this.apply(log.eventName, log.args as never);
@@ -102,6 +107,7 @@ export class OrderStore {
       );
       this.open.set(args.orderId, {
         orderId: args.orderId,
+        book: this.market.book,
         maker: args.maker as Address,
         tokenIn: args.tokenIn as Address,
         tokenOut: args.tokenOut as Address,
@@ -130,7 +136,7 @@ export class OrderStore {
     let pool = this.poolCache.get(key);
     if (!pool) {
       pool = await this.client.readContract({
-        address: ADDRESSES.UNISWAP_V3_FACTORY,
+        address: this.market.factory,
         abi: FACTORY_ABI,
         functionName: "getPool",
         args: [tokenIn, tokenOut, fee],

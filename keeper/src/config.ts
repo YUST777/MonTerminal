@@ -6,8 +6,7 @@ const envSchema = z.object({
     .default("https://rpc.monad.xyz,https://rpc1.monad.xyz,https://rpc2.monad.xyz,https://rpc3.monad.xyz")
     .transform((s) => s.split(",").map((u) => u.trim()).filter(Boolean)),
   PRIVATE_KEY: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "PRIVATE_KEY must be a 0x-prefixed 32-byte hex"),
-  BOOK_ADDRESS: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "BOOK_ADDRESS must be an address"),
-  DEPLOY_BLOCK: z.coerce.bigint().default(0n),
+  // Books + deploy blocks come from @monolimit/shared MARKETS.
   POLL_MS: z.coerce.number().int().min(200).default(1000),
   DRY_RUN: z
     .string()

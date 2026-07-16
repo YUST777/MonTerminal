@@ -1,9 +1,10 @@
-import type { Address } from "viem";
+import { MARKETS } from "@monolimit/shared";
 import { createClients } from "./clients.ts";
 import { loadConfig } from "./config.ts";
 import { evaluate } from "./evaluator.ts";
 import { Executor } from "./executor.ts";
 import { createLogger } from "./logger.ts";
+import { NonceQueue } from "./nonce.ts";
 import { OrderStore } from "./orderStore.ts";
 import { fetchPoolTicks } from "./priceWatcher.ts";
 
@@ -15,45 +16,56 @@ async function main() {
   log.info(
     {
       keeper: clients.account.address,
-      book: config.BOOK_ADDRESS,
+      books: MARKETS.map((m) => `${m.label}:${m.book}`),
       pollMs: config.POLL_MS,
       dryRun: config.DRY_RUN,
     },
     "monolimit keeper starting",
   );
 
-  const store = new OrderStore(clients.publicClient, config.BOOK_ADDRESS as Address, log);
-  await store.hydrate(config.DEPLOY_BLOCK);
-  store.watch(() => log.debug({ open: store.open.size }, "order set changed"));
-
-  const executor = new Executor(clients, config, store, log);
+  // One store + executor per market's book; the wallet (and its nonce queue)
+  // is shared across all of them.
+  const nonceQueue = new NonceQueue();
+  const lanes = MARKETS.map((market) => {
+    const store = new OrderStore(clients.publicClient, market, log);
+    const executor = new Executor(clients, config, store, log, nonceQueue);
+    return { market, store, executor };
+  });
+  await Promise.all(lanes.map(({ store }) => store.hydrate()));
+  for (const { market, store } of lanes) {
+    store.watch(() => log.debug({ market: market.label, open: store.open.size }, "order set changed"));
+  }
 
   let stopping = false;
   const stop = () => {
     if (stopping) process.exit(1); // second signal: hard exit
     stopping = true;
     log.info("shutting down (waiting for in-flight work)…");
-    store.stop();
+    for (const { store } of lanes) store.stop();
     setTimeout(() => process.exit(0), 2_000);
   };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 
-  // Main loop: one slot0 multicall per poll, pure evaluation, then execution.
+  // Main loop: one slot0 multicall per poll across every market's watched
+  // pools, pure evaluation, then execution.
   while (!stopping) {
     const startedAt = Date.now();
     try {
-      const ticks = await fetchPoolTicks(clients.publicClient, store.watchedPools);
+      const pools = [...new Set(lanes.flatMap(({ store }) => store.watchedPools))];
+      const ticks = await fetchPoolTicks(clients.publicClient, pools);
       const nowSec = Math.floor(Date.now() / 1000);
 
       const jobs: Promise<void>[] = [];
-      for (const order of store.open.values()) {
-        const tick = ticks.get(order.pool);
-        const verdict = evaluate(order, tick, nowSec);
-        if (verdict.action === "drop") {
-          store.remove(order.orderId); // expired: silently forget (cannot execute)
-        } else if (verdict.action === "execute" && tick !== undefined) {
-          jobs.push(executor.tryExecute(order, tick));
+      for (const { store, executor } of lanes) {
+        for (const order of store.open.values()) {
+          const tick = ticks.get(order.pool);
+          const verdict = evaluate(order, tick, nowSec);
+          if (verdict.action === "drop") {
+            store.remove(order.orderId); // expired: silently forget (cannot execute)
+          } else if (verdict.action === "execute" && tick !== undefined) {
+            jobs.push(executor.tryExecute(order, tick));
+          }
         }
       }
       await Promise.all(jobs);

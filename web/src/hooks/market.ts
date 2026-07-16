@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { erc20Abi, isAddress, parseAbi, type Address } from "viem";
-import { ADDRESSES, FEE_TIERS, tickToExecutionPrice } from "@monolimit/shared";
+import { ADDRESSES, FEE_TIERS, MARKETS, tickToExecutionPrice, type Market } from "@monolimit/shared";
 import { fetchOhlcv, fetchPoolStats, fetchTokenPools, type Timeframe } from "../lib/gecko.ts";
 import type { PoolInfo, TokenMeta } from "../state/terminal.ts";
 
@@ -35,10 +35,10 @@ function prettyDex(id: string) {
 }
 
 /**
- * Paste-an-address token lookup. The book executes on Uniswap v3, but meme
- * coins pool against anything (USDC, WMON, CHOG…) — so we ask GeckoTerminal
- * for the token's deepest uniswap-v3 pool first, then fall back to scanning
- * the factory for TOKEN/WMON and TOKEN/USDC across fee tiers.
+ * Paste-an-address token lookup. MonoLimit runs a book per supported DEX
+ * (Uniswap v3, Capricorn, PancakeSwap v3) — so we ask GeckoTerminal for the
+ * token's deepest pool on any supported market first, then fall back to
+ * scanning each market's factory for TOKEN/WMON and TOKEN/USDC pairs.
  */
 export function useMarketLookup(rawQuery: string) {
   const client = usePublicClient();
@@ -74,14 +74,24 @@ export function useMarketLookup(rawQuery: string) {
       }
 
       const gecko = await fetchTokenPools(address).catch(() => []);
-      const v3 = gecko.find((p) => p.dexId === "uniswap-v3-monad");
-      const poolAddress = v3 ? (v3.address as Address) : await factoryScan(address);
-      if (!poolAddress) {
+      // Gecko sorts deepest-first, so the first supported dex wins.
+      const supported = gecko.find((p) => MARKETS.some((m) => m.dexId === p.dexId));
+      let poolAddress: Address | null;
+      let market: Market | undefined;
+      if (supported) {
+        poolAddress = supported.address as Address;
+        market = MARKETS.find((m) => m.dexId === supported.dexId)!;
+      } else {
+        const scanned = await factoryScan(address);
+        poolAddress = scanned?.pool ?? null;
+        market = scanned?.market;
+      }
+      if (!poolAddress || !market) {
         const elsewhere = gecko[0];
         throw new Error(
           elsewhere
-            ? `${symbol} only trades on ${prettyDex(elsewhere.dexId)} ($${Math.round(elsewhere.reserveUsd).toLocaleString()} liq) — MonoLimit executes through Uniswap v3, and ${symbol} has no v3 pool`
-            : `${symbol} has no Uniswap v3 pool on Monad — the book can only execute on Uniswap v3`,
+            ? `${symbol} only trades on ${prettyDex(elsewhere.dexId)} ($${Math.round(elsewhere.reserveUsd).toLocaleString()} liq) — MonoLimit supports ${MARKETS.map((m) => m.label).join(", ")}, and ${symbol} has no pool on any of them`
+            : `${symbol} has no pool on a supported DEX (${MARKETS.map((m) => m.label).join(", ")})`,
         );
       }
 
@@ -111,29 +121,35 @@ export function useMarketLookup(rawQuery: string) {
           fee: Number(fee),
           tokenIsToken0: token0.toLowerCase() === address.toLowerCase(),
           quote: { address: quoteAddr, symbol: quoteSymbol, name: quoteName, decimals: quoteDecimals },
+          market,
         },
       };
     },
   });
 
-  /** On-chain fallback: TOKEN vs {WMON, USDC} across all fee tiers, deepest wins. */
-  async function factoryScan(token: Address): Promise<Address | null> {
-    const combos = QUOTE_CANDIDATES.flatMap((quote) =>
-      FEE_TIERS.map((fee) => ({ quote, fee })),
+  /** On-chain fallback: TOKEN vs {WMON, USDC} across every market's factory + fee tier, deepest wins. */
+  async function factoryScan(token: Address): Promise<{ pool: Address; market: Market } | null> {
+    const combos = MARKETS.flatMap((market) =>
+      QUOTE_CANDIDATES.flatMap((quote) => FEE_TIERS.map((fee) => ({ market, quote, fee }))),
     ).filter((c) => c.quote.toLowerCase() !== token.toLowerCase());
     const pools = await client!.multicall({
       contracts: combos.map((c) => ({
-        address: ADDRESSES.UNISWAP_V3_FACTORY,
+        address: c.market.factory,
         abi: FACTORY_ABI,
         functionName: "getPool" as const,
         args: [token, c.quote, c.fee] as const,
       })),
-      allowFailure: false,
+      allowFailure: true,
     });
-    const found = pools.filter((p) => p !== "0x0000000000000000000000000000000000000000");
+    const found: { pool: Address; market: Market }[] = [];
+    pools.forEach((r, i) => {
+      if (r.status === "success" && r.result !== "0x0000000000000000000000000000000000000000") {
+        found.push({ pool: r.result, market: combos[i]!.market });
+      }
+    });
     if (found.length === 0) return null;
     const liqs = await client!.multicall({
-      contracts: found.map((p) => ({ address: p, abi: POOL_ABI, functionName: "liquidity" as const })),
+      contracts: found.map((f) => ({ address: f.pool, abi: POOL_ABI, functionName: "liquidity" as const })),
       allowFailure: false,
     });
     let best = 0;
