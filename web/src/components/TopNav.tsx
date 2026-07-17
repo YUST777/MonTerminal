@@ -12,7 +12,7 @@ const EXPLORER = "https://monadscan.com/address/";
 export function TopNav() {
   const path = usePathname();
   const token = useTerminal((s) => s.token);
-  const onBridge = path === "/bridge";
+  const onBridge = path === "/bridge" || path === "/swap";
   const onPortfolio = path === "/portfolio";
   // "Spot" returns to the selected market — or, after a reload, the last one
   // this browser traded (deep-linking re-resolves the pool fresh) — else home.
@@ -33,8 +33,8 @@ export function TopNav() {
         <NavItem active={!onBridge && !onPortfolio} onClick={() => navigate(spotPath)}>
           Spot
         </NavItem>
-        <NavItem active={onBridge} onClick={() => navigate("/bridge")}>
-          Bridge
+        <NavItem active={onBridge} onClick={() => navigate("/swap")}>
+          Swap · Bridge
         </NavItem>
         <NavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
           Portfolio

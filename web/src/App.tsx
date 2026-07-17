@@ -44,7 +44,7 @@ export default function App() {
     );
   }
 
-  const onBridge = path === "/bridge";
+  const onBridge = path === "/bridge" || path === "/swap";
   const onPortfolio = path === "/portfolio";
   // "/" is ALWAYS the home page — a selected token only means the terminal
   // when the URL says so (logo → home works even mid-trade).

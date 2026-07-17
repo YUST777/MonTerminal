@@ -13,7 +13,7 @@ export function NetworkGuard() {
   const path = usePathname();
   const { chainId, isConnected } = useAccount();
   const { switchChain, isPending } = useSwitchChain();
-  const onBridge = path === "/bridge";
+  const onBridge = path === "/bridge" || path === "/swap";
   const wrong = isConnected && chainId !== monad.id;
   // one auto-prompt per wrong-chain episode — never spam a rejecting user
   const prompted = useRef(false);

@@ -64,24 +64,29 @@ const trimError = (err: unknown) =>
   ((err as Error).message ?? "Something went wrong").split("\n")[0]!.slice(0, 140);
 
 /**
- * /bridge — any token on any supported chain → any token on any other,
- * quoted and filled through the Relay API (bridge, swap, or both in one).
- * Defaults to ETH on Base → native MON on Monad.
+ * /swap (alias /bridge) — one widget for both modes: any token on any
+ * supported chain → any token on any other, quoted and filled through the
+ * Relay API. Same chain on both sides = swap; different chains = bridge
+ * (with a destination-side swap folded in when the tokens differ, so
+ * "MON on Monad → a memecoin on another chain" is one transaction).
+ * Defaults to MON → USDC on Monad; the last-used pair persists.
  */
 export function BridgePage() {
   const { address } = useAccount();
   const { switchChainAsync } = useSwitchChain();
-  // Last-used pair survives reloads; first visit defaults to Base → Monad.
+  // Last-used pair survives reloads; first visit defaults to a same-chain
+  // MON → USDC swap on Monad (the everyday action) — picking any other chain
+  // in the token sheet turns the same widget into the bridge.
   const [from, setFromState] = useState<Side>(() =>
     restoreSide("bridge-from", {
-      chain: BRIDGE_ORIGINS[1], // Base — the majors are pinned ahead of the generated chains
-      token: defaultToken(BRIDGE_ORIGINS[1]),
+      chain: BRIDGE_CHAINS[0], // Monad
+      token: defaultToken(BRIDGE_CHAINS[0]), // native MON
     }),
   );
   const [to, setToState] = useState<Side>(() =>
     restoreSide("bridge-to", {
       chain: BRIDGE_CHAINS[0], // Monad
-      token: defaultToken(BRIDGE_CHAINS[0]), // native MON
+      token: BRIDGE_TOKENS[BRIDGE_CHAINS[0].id]?.[2] ?? defaultToken(BRIDGE_CHAINS[0]), // USDC
     }),
   );
   const setFrom = (s: Side) => {
@@ -299,7 +304,7 @@ export function BridgePage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex w-full max-w-[440px] flex-col px-3 py-6 sm:px-4 sm:py-12">
-        <div className="mb-3 px-1 text-sm font-semibold">Bridge</div>
+        <div className="mb-3 px-1 text-sm font-semibold">{isSwap ? "Swap" : "Bridge"}</div>
 
         {/* Sell card */}
         <div className="rounded-2xl border border-line bg-raised p-4 focus-within:border-brand/50">
