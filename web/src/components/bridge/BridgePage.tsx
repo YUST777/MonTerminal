@@ -44,11 +44,13 @@ const GAS_RESERVE: Record<number, bigint> = {
   56: parseUnits("0.001", 18),
   137: parseUnits("0.2", 18), // POL is cheap per unit
   143: parseUnits("0.15", 18), // Monad — the deposit multicall ran ~0.08 MON live
+  4663: parseUnits("0.00002", 18), // Robinhood Chain — Orbit rollup, gas is near-free
 };
-// ETH-denominated gas is expensive per unit; alt-native chains burn more units.
+// Mainnet has its explicit entry above; other ETH chains are rollups where the
+// deposit costs a fraction of that. Alt-native chains burn more units per tx.
 const gasReserve = (chain: BridgeChain) =>
   GAS_RESERVE[chain.id] ??
-  (chain.nativeCurrency.symbol === "ETH" ? parseUnits("0.001", 18) : parseUnits("0.02", 18));
+  (chain.nativeCurrency.symbol === "ETH" ? parseUnits("0.0003", 18) : parseUnits("0.02", 18));
 
 /** Wallet "user hit cancel" errors come in many shapes — normalize them. */
 const isUserRejection = (err: unknown): boolean => {
@@ -322,10 +324,15 @@ export function BridgePage() {
                   {fromBalance!.value > 0n && (
                     <button
                       onClick={() => {
-                        // native Max leaves gas behind; ERC-20s can go all-in
+                        // native Max leaves gas behind; ERC-20s can go all-in.
+                        // A balance smaller than the reserve still fills all-in
+                        // (never a silent "0") — the gas preflight under the
+                        // CTA says so explicitly if gas truly can't be covered.
                         const reserve = isNative(from.token) ? gasReserve(from.chain) : 0n;
                         const v =
-                          fromBalance!.value > reserve ? fromBalance!.value - reserve : 0n;
+                          fromBalance!.value > reserve
+                            ? fromBalance!.value - reserve
+                            : fromBalance!.value;
                         setAmountText(formatUnits(v, fromBalance!.decimals));
                       }}
                       className="ml-1.5 rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand hover:bg-brand/25"
