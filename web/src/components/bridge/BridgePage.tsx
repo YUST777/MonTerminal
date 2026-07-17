@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { monad } from "@monolimit/shared";
 import { BRIDGE_CHAINS, BRIDGE_ORIGINS, wagmiConfig } from "../../config/wagmi.ts";
 import { BRIDGE_TOKENS, isNative, nativeFromChain, type BridgeToken } from "../../config/tokens.ts";
+import { loadPersisted, savePersisted } from "../../lib/persist.ts";
 import { executeRelaySteps, getRelayQuote, type RelayQuote } from "../../lib/relay.ts";
 import { useToasts } from "../Toasts.tsx";
 import { ChainIcon, TokenImg, TokenSelectModal, type BridgeChain } from "./ChainSelect.tsx";
@@ -19,6 +20,19 @@ interface Side {
  * the 52 generated chains have no BRIDGE_TOKENS entry. */
 const defaultToken = (chain: BridgeChain): BridgeToken =>
   BRIDGE_TOKENS[chain.id]?.[0] ?? nativeFromChain(chain);
+
+/** Serialized side selection — chain by id (rehydrated from the registry so
+ * transports/config stay canonical), token stored whole (plain JSON). */
+interface StoredSide {
+  chainId: number;
+  token: BridgeToken;
+}
+const restoreSide = (key: string, fallback: Side): Side => {
+  const stored = loadPersisted<StoredSide>(key);
+  const chain = BRIDGE_CHAINS.find((c) => c.id === stored?.chainId);
+  if (!chain || typeof stored?.token?.address !== "string") return fallback;
+  return { chain, token: stored.token };
+};
 
 /**
  * Rough per-chain gas reserve so a native-token Max still pays for the origin
@@ -55,14 +69,27 @@ const trimError = (err: unknown) =>
 export function BridgePage() {
   const { address } = useAccount();
   const { switchChainAsync } = useSwitchChain();
-  const [from, setFrom] = useState<Side>({
-    chain: BRIDGE_ORIGINS[1], // Base — the majors are pinned ahead of the generated chains
-    token: defaultToken(BRIDGE_ORIGINS[1]),
-  });
-  const [to, setTo] = useState<Side>({
-    chain: BRIDGE_CHAINS[0], // Monad
-    token: defaultToken(BRIDGE_CHAINS[0]), // native MON
-  });
+  // Last-used pair survives reloads; first visit defaults to Base → Monad.
+  const [from, setFromState] = useState<Side>(() =>
+    restoreSide("bridge-from", {
+      chain: BRIDGE_ORIGINS[1], // Base — the majors are pinned ahead of the generated chains
+      token: defaultToken(BRIDGE_ORIGINS[1]),
+    }),
+  );
+  const [to, setToState] = useState<Side>(() =>
+    restoreSide("bridge-to", {
+      chain: BRIDGE_CHAINS[0], // Monad
+      token: defaultToken(BRIDGE_CHAINS[0]), // native MON
+    }),
+  );
+  const setFrom = (s: Side) => {
+    savePersisted("bridge-from", { chainId: s.chain.id, token: s.token });
+    setFromState(s);
+  };
+  const setTo = (s: Side) => {
+    savePersisted("bridge-to", { chainId: s.chain.id, token: s.token });
+    setToState(s);
+  };
   const [selecting, setSelecting] = useState<"from" | "to" | null>(null);
   const [amountText, setAmountText] = useState("");
   const [quote, setQuote] = useState<RelayQuote | null>(null);

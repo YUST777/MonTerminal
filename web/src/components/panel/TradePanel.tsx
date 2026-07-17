@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { usePersistentState } from "../../lib/persist.ts";
 import { AutoLadder } from "./AutoLadder.tsx";
 import { BuyLimit } from "./BuyLimit.tsx";
 import { BuyMarket } from "./BuyMarket.tsx";
@@ -24,8 +24,8 @@ const TAB_TITLE: Record<Tab, string> = {
  * Auto places a GMGN-style sell ladder ("at 2× sell half") atomically.
  */
 export function TradePanel() {
-  const [tab, setTab] = useState<Tab>("Buy");
-  const [limitSide, setLimitSide] = useState<LimitSide>("Buy");
+  const [tab, setTab] = usePersistentState<Tab>("panel-tab", "Buy", (v) => TABS.includes(v));
+  const [limitSide, setLimitSide] = usePersistentState<LimitSide>("panel-limit-side", "Buy", (v) => LIMIT_SIDES.includes(v));
 
   return (
     <div>

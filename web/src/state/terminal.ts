@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Address } from "viem";
 import { ADDRESSES, type Market } from "@monolimit/shared";
+import { savePersisted } from "../lib/persist.ts";
 
 export interface TokenMeta {
   address: Address;
@@ -38,5 +39,11 @@ export const WMON_META: TokenMeta = {
 export const useTerminal = create<TerminalState>((set) => ({
   token: null,
   pool: null,
-  setMarket: (token, pool) => set({ token, pool }),
+  setMarket: (token, pool) => {
+    // Remember the last market across reloads. Only the address is read back
+    // (TopNav's Spot deep link) — the pool is re-resolved fresh on navigation,
+    // so nothing stale ever reaches the chart or the panels.
+    savePersisted("last-market", { address: token.address, symbol: token.symbol });
+    set({ token, pool });
+  },
 }));

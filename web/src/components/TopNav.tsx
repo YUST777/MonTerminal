@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { MARKETS } from "@monolimit/shared";
 import { shortAddr } from "../lib/format.ts";
+import { loadPersisted } from "../lib/persist.ts";
 import { navigate, usePathname } from "../lib/router.ts";
 import { useTerminal } from "../state/terminal.ts";
 
@@ -13,8 +14,10 @@ export function TopNav() {
   const token = useTerminal((s) => s.token);
   const onBridge = path === "/bridge";
   const onPortfolio = path === "/portfolio";
-  // "Spot" returns to the selected market if there is one, else home.
-  const spotPath = token ? `/token/monad/${token.address.toLowerCase()}` : "/";
+  // "Spot" returns to the selected market — or, after a reload, the last one
+  // this browser traded (deep-linking re-resolves the pool fresh) — else home.
+  const lastMarket = token ?? loadPersisted<{ address: string }>("last-market");
+  const spotPath = lastMarket ? `/token/monad/${lastMarket.address.toLowerCase()}` : "/";
 
   return (
     <header className="flex h-14 items-center gap-2.5 border-b border-line bg-bg px-3 sm:gap-6 sm:px-5">

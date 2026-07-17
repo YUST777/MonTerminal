@@ -4,6 +4,7 @@ import { fetchOhlcv } from "../../lib/gecko.ts";
 import { fmtAmountNum, fmtPct, fmtUsd } from "../../lib/format.ts";
 import type { PortfolioAsset } from "../../hooks/portfolio.ts";
 import { TokenIcon } from "../TokenIcon.tsx";
+import { usePersistentState } from "../../lib/persist.ts";
 
 const GRID =
   "grid grid-cols-[minmax(170px,1.8fr)_0.9fr_1fr_1fr_minmax(150px,1.3fr)_minmax(130px,1.2fr)] items-center gap-3";
@@ -23,8 +24,8 @@ export function AssetsTable({
   loading: boolean;
   hidden: boolean;
 }) {
-  const [unit, setUnit] = useState<"$" | "%">("$");
-  const [expanded, setExpanded] = useState(false);
+  const [unit, setUnit] = usePersistentState<"$" | "%">("assets-unit", "$", (v) => v === "$" || v === "%");
+  const [expanded, setExpanded] = usePersistentState<boolean>("assets-expanded", false);
   const rows = expanded ? assets : assets.slice(0, COLLAPSED_ROWS);
 
   return (

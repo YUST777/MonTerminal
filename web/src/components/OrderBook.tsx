@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDepth, useTrades } from "../hooks/market.ts";
 import { fmtAmountNum, fmtPrice } from "../lib/format.ts";
 import { useTerminal } from "../state/terminal.ts";
+import { usePersistentState } from "../lib/persist.ts";
 
 /**
  * Right-of-chart panel, hypeterminal-style: Order Book | Trades tabs.
@@ -9,7 +10,7 @@ import { useTerminal } from "../state/terminal.ts";
  * range); trades are the pool's recent swaps from GeckoTerminal.
  */
 export function OrderBook() {
-  const [tab, setTab] = useState<"book" | "trades">("book");
+  const [tab, setTab] = usePersistentState<"book" | "trades">("book-tab", "book", (v) => v === "book" || v === "trades");
   const { token, pool } = useTerminal();
   if (!token || !pool) return null;
 

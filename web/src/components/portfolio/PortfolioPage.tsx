@@ -13,8 +13,10 @@ import { fmtPct, fmtUsd } from "../../lib/format.ts";
 import { AssetsTable } from "./AssetsTable.tsx";
 import { PortfolioSide } from "./PortfolioSide.tsx";
 import { ValueChart } from "./ValueChart.tsx";
+import { usePersistentState } from "../../lib/persist.ts";
 
 const RANGES: HistoryRange[] = ["1D", "1W", "1M"];
+const isRange = (v: HistoryRange) => RANGES.includes(v);
 
 /**
  * Portfolio dashboard — every number is live: balances from a multicall over
@@ -24,9 +26,9 @@ const RANGES: HistoryRange[] = ["1D", "1W", "1M"];
  */
 export function PortfolioPage() {
   const { address, isConnected } = useAccount();
-  const [hidden, setHidden] = useState(false);
-  const [headRange, setHeadRange] = useState<HistoryRange>("1D");
-  const [perfRange, setPerfRange] = useState<HistoryRange>("1W");
+  const [hidden, setHidden] = usePersistentState<boolean>("portfolio-hidden", false);
+  const [headRange, setHeadRange] = usePersistentState<HistoryRange>("portfolio-head-range", "1D", isRange);
+  const [perfRange, setPerfRange] = usePersistentState<HistoryRange>("portfolio-perf-range", "1W", isRange);
   const portfolio = usePortfolio();
   const p = portfolio.data;
   const headHistory = useHoldingsHistory(p, headRange);

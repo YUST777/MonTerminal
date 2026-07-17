@@ -5,13 +5,14 @@ import { useCandles } from "../hooks/market.ts";
 import type { Timeframe } from "../lib/gecko.ts";
 import { useTerminal } from "../state/terminal.ts";
 import { useUserOrders, KIND, STATUS } from "../hooks/orders.ts";
+import { usePersistentState } from "../lib/persist.ts";
 
 const TFS: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
 /** Candlestick chart (GeckoTerminal data) with SL/TP trigger price-lines. */
 export function KlineChart() {
   const { token, pool } = useTerminal();
-  const [tf, setTf] = useState<Timeframe>("15m");
+  const [tf, setTf] = usePersistentState<Timeframe>("chart-tf", "15m", (v) => TFS.includes(v));
   const { data: candles } = useCandles(pool, tf);
   const { data: orders } = useUserOrders();
   const containerRef = useRef<HTMLDivElement>(null);

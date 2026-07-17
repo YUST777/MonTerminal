@@ -14,7 +14,7 @@ import {
   type TopPool,
 } from "../lib/gecko.ts";
 import { buildDepth } from "../lib/depth.ts";
-import { replacePath } from "../lib/router.ts";
+import { replacePath, usePathname } from "../lib/router.ts";
 import {
   fetchPairsMedia,
   fetchPoolStatsDs,
@@ -373,25 +373,40 @@ export function useTokenMedia(token: Address | undefined) {
 export function useUrlMarketSync(): boolean {
   const client = usePublicClient({ chainId: monad.id });
   const { token, setMarket } = useTerminal();
-  const applied = useRef(false);
+  const path = usePathname();
+  const inFlight = useRef<string | null>(null);
   // A deep-linked path means a market is about to load — start in loading state.
   const [resolving, setResolving] = useState(() =>
     /^\/token\/monad\/0x[0-9a-fA-F]{40}$/.test(window.location.pathname),
   );
 
+  // Resolve /token/… whenever the path points at a market the store doesn't
+  // hold yet — first load AND later navigations (e.g. the Spot tab restoring
+  // the last-traded market after a reload).
   useEffect(() => {
-    if (applied.current || !client) return;
-    applied.current = true;
-    const m = window.location.pathname.match(/^\/token\/monad\/(0x[0-9a-fA-F]{40})$/);
-    if (!m || useTerminal.getState().token) {
+    if (!client) return;
+    const m = path.match(/^\/token\/monad\/(0x[0-9a-fA-F]{40})$/);
+    if (!m) {
       setResolving(false);
       return;
     }
+    const addr = m[1]!.toLowerCase();
+    const current = useTerminal.getState().token;
+    if (current && current.address.toLowerCase() === addr) {
+      setResolving(false);
+      return;
+    }
+    if (inFlight.current === addr) return;
+    inFlight.current = addr;
+    setResolving(true);
     lookupMarket(client, m[1] as Address)
       .then((r) => setMarket(r.token, r.pool))
       .catch(() => replacePath("/"))
-      .finally(() => setResolving(false));
-  }, [client, setMarket]);
+      .finally(() => {
+        inFlight.current = null;
+        setResolving(false);
+      });
+  }, [client, path, setMarket]);
 
   useEffect(() => {
     if (!token) return;

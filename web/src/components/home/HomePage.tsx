@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNewPools, useTopPools, useTrendingPools } from "../../hooks/market.ts";
 import { PoolTable } from "./PoolTable.tsx";
+import { usePersistentState } from "../../lib/persist.ts";
 
 const TABS = [
   { id: "trending", label: "🔥 Trending" },
@@ -14,7 +15,7 @@ type TabId = (typeof TABS)[number]["id"];
  * dense token table, live from GeckoTerminal; a row click opens the terminal.
  */
 export function HomePage() {
-  const [tab, setTab] = useState<TabId>("trending");
+  const [tab, setTab] = usePersistentState<TabId>("home-tab", "trending", (v) => TABS.some((t) => t.id === v));
   // Only the active tab polls — keeps us well inside gecko's free rate limit.
   const trending = useTrendingPools(tab === "trending");
   const fresh = useNewPools(tab === "new");
