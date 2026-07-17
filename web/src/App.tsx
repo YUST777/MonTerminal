@@ -22,9 +22,6 @@ const BridgePage = lazy(() =>
 const PortfolioPage = lazy(() =>
   import("./components/portfolio/PortfolioPage.tsx").then((m) => ({ default: m.PortfolioPage })),
 );
-const BurnerPage = lazy(() =>
-  import("./components/burner/BurnerPage.tsx").then((m) => ({ default: m.BurnerPage })),
-);
 
 export default function App() {
   const { token } = useTerminal();
@@ -39,7 +36,7 @@ export default function App() {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-bg text-fg">
         <div className="text-xl font-bold">
-          MONO<span className="monad-gradient-text">LIMIT</span>
+          Mono<span className="monad-gradient-text">Limit</span>
         </div>
         <div className="spinner size-6" />
         <div className="text-xs text-muted">Loading market…</div>
@@ -49,8 +46,9 @@ export default function App() {
 
   const onBridge = path === "/bridge";
   const onPortfolio = path === "/portfolio";
-  const onBurner = path === "/burner";
-  const fullPage = onBridge || onPortfolio || onBurner;
+  // "/" is ALWAYS the home page — a selected token only means the terminal
+  // when the URL says so (logo → home works even mid-trade).
+  const onTerminal = !!token && path.startsWith("/token/");
 
   return (
     <div className="flex h-dvh flex-col bg-bg text-fg">
@@ -58,7 +56,7 @@ export default function App() {
       <TopNav />
       {/* market selector + favorites live on every page — one-click hop to any coin */}
       <MarketBar />
-      {!fullPage && <TokenHeader />}
+      {onTerminal && <TokenHeader />}
 
       {/* main — Suspense fallback stays blank: each page paints its own skeletons */}
       <div className="min-h-0 flex-1">
@@ -67,9 +65,7 @@ export default function App() {
           <BridgePage />
         ) : onPortfolio ? (
           <PortfolioPage />
-        ) : onBurner ? (
-          <BurnerPage />
-        ) : token ? (
+        ) : onTerminal ? (
           desktop ? (
             <PanelGroup direction="horizontal">
               <Panel defaultSize={77} minSize={50}>

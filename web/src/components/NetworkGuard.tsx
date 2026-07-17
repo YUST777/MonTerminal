@@ -1,12 +1,34 @@
+import { useEffect, useRef } from "react";
 import { useAccount, useSwitchChain } from "wagmi";
 import { monad } from "@monolimit/shared";
+import { usePathname } from "../lib/router.ts";
 
-/** Forces the wallet onto Monad (chain 143) before anything on-chain happens. */
+/**
+ * Keeps the wallet on Monad mainnet (143). The moment a wrong chain is
+ * detected it prompts the wallet to switch back automatically — the banner
+ * only lingers if the user rejects the prompt. The bridge page is exempt:
+ * funding from Ethereum/Base/… legitimately needs the wallet elsewhere.
+ */
 export function NetworkGuard() {
+  const path = usePathname();
   const { chainId, isConnected } = useAccount();
   const { switchChain, isPending } = useSwitchChain();
+  const onBridge = path === "/bridge";
+  const wrong = isConnected && chainId !== monad.id;
+  // one auto-prompt per wrong-chain episode — never spam a rejecting user
+  const prompted = useRef(false);
 
-  if (!isConnected || chainId === monad.id) return null;
+  useEffect(() => {
+    if (!wrong) {
+      prompted.current = false;
+      return;
+    }
+    if (onBridge || prompted.current) return;
+    prompted.current = true;
+    switchChain({ chainId: monad.id });
+  }, [wrong, onBridge, switchChain]);
+
+  if (!wrong || onBridge) return null;
   return (
     <div className="flex items-center justify-between gap-3 border-b border-warn/40 bg-warn/10 px-4 py-2 text-sm text-warn">
       <span>Wrong network — MonoLimit runs on Monad mainnet (143).</span>

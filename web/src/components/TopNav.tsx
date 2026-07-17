@@ -13,22 +13,21 @@ export function TopNav() {
   const token = useTerminal((s) => s.token);
   const onBridge = path === "/bridge";
   const onPortfolio = path === "/portfolio";
-  const onBurner = path === "/burner";
   // "Spot" returns to the selected market if there is one, else home.
   const spotPath = token ? `/token/monad/${token.address.toLowerCase()}` : "/";
 
   return (
-    <header className="flex h-11 items-center gap-2 border-b border-line bg-bg px-2 sm:gap-5 sm:px-3">
-      {/* logo — text-only wordmark */}
-      <button onClick={() => navigate(spotPath)} className="flex shrink-0 items-center">
-        <span className="text-[15px] font-bold tracking-tight">
-          MONO<span className="monad-gradient-text">LIMIT</span>
+    <header className="flex h-14 items-center gap-2.5 border-b border-line bg-bg px-3 sm:gap-6 sm:px-5">
+      {/* logo — always goes home */}
+      <button onClick={() => navigate("/")} className="flex shrink-0 items-baseline">
+        <span className="text-[18px] font-bold tracking-tight">
+          Mono<span className="monad-gradient-text">Limit</span>
         </span>
       </button>
 
       {/* primary nav — scrolls sideways instead of wrapping on tiny screens */}
-      <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto text-[13px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <NavItem active={!onBridge && !onPortfolio && !onBurner} onClick={() => navigate(spotPath)}>
+      <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-[14px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <NavItem active={!onBridge && !onPortfolio} onClick={() => navigate(spotPath)}>
           Spot
         </NavItem>
         <NavItem active={onBridge} onClick={() => navigate("/bridge")}>
@@ -37,13 +36,10 @@ export function TopNav() {
         <NavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
           Portfolio
         </NavItem>
-        <NavItem active={onBurner} onClick={() => navigate("/burner")}>
-          Burner
-        </NavItem>
       </nav>
 
       {/* right cluster */}
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2.5">
         <ConnectButton.Custom>
           {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
             const connected = mounted && account && chain;
@@ -52,7 +48,7 @@ export function TopNav() {
                 onClick={
                   !connected ? openConnectModal : chain?.unsupported ? openChainModal : openAccountModal
                 }
-                className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-line bg-raised px-2.5 py-1 text-xs font-semibold hover:border-brand"
+                className="flex items-center gap-2 whitespace-nowrap rounded-md border border-line bg-raised px-3.5 py-1.5 text-[13px] font-semibold hover:border-brand"
               >
                 <WalletGlyph />
                 {!connected ? (
@@ -99,7 +95,7 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      className={`rounded px-2 py-1 transition-colors ${
+      className={`rounded-md px-3 py-1.5 transition-colors ${
         active ? "bg-overlay font-semibold text-fg" : "text-muted hover:text-fg"
       }`}
     >
@@ -127,7 +123,7 @@ function SettingsMenu() {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Settings"
-        className={`flex size-6.5 items-center justify-center rounded-md border border-line hover:border-brand ${
+        className={`flex size-8 items-center justify-center rounded-md border border-line hover:border-brand ${
           open ? "bg-overlay text-fg" : "text-muted hover:text-fg"
         }`}
       >
@@ -163,7 +159,7 @@ function SettingsMenu() {
 
 function WalletGlyph() {
   return (
-    <svg viewBox="0 0 20 20" className="size-3.5" fill="none" aria-hidden>
+    <svg viewBox="0 0 20 20" className="size-4" fill="none" aria-hidden>
       <rect x="2" y="5" width="16" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
       <path d="M2 8h16" stroke="currentColor" strokeWidth="1.5" />
       <circle cx="14" cy="12" r="1.2" fill="currentColor" />
@@ -173,7 +169,7 @@ function WalletGlyph() {
 
 function GearGlyph() {
   return (
-    <svg viewBox="0 0 20 20" className="size-3.5" fill="none" aria-hidden>
+    <svg viewBox="0 0 20 20" className="size-4" fill="none" aria-hidden>
       <circle cx="10" cy="10" r="2.6" stroke="currentColor" strokeWidth="1.5" />
       <path
         d="M10 2.5v2.2M10 15.3v2.2M2.5 10h2.2M15.3 10h2.2M4.7 4.7l1.6 1.6M13.7 13.7l1.6 1.6M15.3 4.7l-1.6 1.6M6.3 13.7l-1.6 1.6"
