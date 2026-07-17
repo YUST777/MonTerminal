@@ -1,8 +1,6 @@
+import { lazy, Suspense } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { BridgePage } from "./components/bridge/BridgePage.tsx";
-import { BurnerPage } from "./components/burner/BurnerPage.tsx";
 import { HomePage } from "./components/home/HomePage.tsx";
-import { PortfolioPage } from "./components/portfolio/PortfolioPage.tsx";
 import { KlineChart } from "./components/KlineChart.tsx";
 import { MarketBar } from "./components/MarketBar.tsx";
 import { NetworkGuard } from "./components/NetworkGuard.tsx";
@@ -16,6 +14,17 @@ import { useTerminal } from "./state/terminal.ts";
 import { useUrlMarketSync } from "./hooks/market.ts";
 import { useMediaQuery } from "./hooks/media.ts";
 import { usePathname } from "./lib/router.ts";
+
+// Secondary routes load on demand — the landing page ships without their code.
+const BridgePage = lazy(() =>
+  import("./components/bridge/BridgePage.tsx").then((m) => ({ default: m.BridgePage })),
+);
+const PortfolioPage = lazy(() =>
+  import("./components/portfolio/PortfolioPage.tsx").then((m) => ({ default: m.PortfolioPage })),
+);
+const BurnerPage = lazy(() =>
+  import("./components/burner/BurnerPage.tsx").then((m) => ({ default: m.BurnerPage })),
+);
 
 export default function App() {
   const { token } = useTerminal();
@@ -50,8 +59,9 @@ export default function App() {
       {!fullPage && <MarketBar />}
       {!fullPage && <TokenHeader />}
 
-      {/* main */}
+      {/* main — Suspense fallback stays blank: each page paints its own skeletons */}
       <div className="min-h-0 flex-1">
+        <Suspense fallback={null}>
         {onBridge ? (
           <BridgePage />
         ) : onPortfolio ? (
@@ -104,6 +114,7 @@ export default function App() {
         ) : (
           <HomePage />
         )}
+        </Suspense>
       </div>
 
       <Toasts />

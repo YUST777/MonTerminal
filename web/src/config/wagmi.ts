@@ -1,5 +1,10 @@
-import { getDefaultConfig } from "@rainbow-me/rainbowkit";
-import { fallback, http } from "wagmi";
+import { connectorsForWallets } from "@rainbow-me/rainbowkit";
+import {
+  injectedWallet,
+  metaMaskWallet,
+  walletConnectWallet,
+} from "@rainbow-me/rainbowkit/wallets";
+import { createConfig, fallback, http } from "wagmi";
 import { arbitrum, base, bsc, mainnet, optimism, polygon } from "wagmi/chains";
 import { monad, ADDRESSES } from "@monolimit/shared";
 import type { Address } from "viem";
@@ -10,10 +15,29 @@ export const BRIDGE_ORIGINS = [mainnet, base, arbitrum, optimism, bsc, polygon] 
 /** Every chain pickable in the bridge (Monad first — it's home). */
 export const BRIDGE_CHAINS = [monad, ...BRIDGE_ORIGINS] as const;
 
-export const wagmiConfig = getDefaultConfig({
-  appName: "MonoLimit",
-  // WalletConnect cloud id — public identifier, fine to ship in a client bundle.
-  projectId: import.meta.env.VITE_WC_PROJECT_ID ?? "monolimit-dev",
+// WalletConnect cloud id — public identifier, fine to ship in a client bundle.
+// Without a real id the WC relay just 400/403s on every page load (observed
+// live: 13 failed pulse.walletconnect.org + api.web3modal.org calls per visit),
+// so the WalletConnect option is only offered when an id is configured.
+const wcProjectId = import.meta.env.VITE_WC_PROJECT_ID as string | undefined;
+
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: "Wallets",
+      // MetaMask's QR fallback also rides the WC relay, so it's gated too;
+      // injectedWallet covers every browser-extension wallet regardless.
+      wallets: [
+        injectedWallet,
+        ...(wcProjectId ? [metaMaskWallet, walletConnectWallet] : []),
+      ],
+    },
+  ],
+  { appName: "MonoLimit", projectId: wcProjectId ?? "monolimit-dev" },
+);
+
+export const wagmiConfig = createConfig({
+  connectors,
   chains: [monad, ...BRIDGE_ORIGINS],
   // viem's default public RPCs (eth.merkle.io & co.) reject browser CORS —
   // publicnode endpoints allow it, so ENS lookups + bridge quoting stay quiet.

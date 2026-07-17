@@ -1,3 +1,6 @@
+/* Self-hosted Inter (one variable woff2, cached by Vite/CDN forever) — replaces
+   the rsms.me stylesheet + 6 font files that hit a third-party host every load. */
+@import "@fontsource-variable/inter";
 @import "tailwindcss";
 
 @theme {
@@ -12,7 +15,7 @@
   --color-warn: #e0be70;
   --color-fg: #e6e7ee;
   --color-muted: #8b8e9c;
-  --font-sans: "Inter", "InterVariable", system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
   --spacing: 4px;
 }
 
