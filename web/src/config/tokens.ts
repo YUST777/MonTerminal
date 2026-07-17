@@ -14,6 +14,20 @@ export interface BridgeToken {
 
 export const isNative = (t: BridgeToken) => t.address === NATIVE_TOKEN;
 
+/**
+ * Native gas token synthesized from a chain's registry entry — the fallback
+ * for the 52 generated chains that have no static BRIDGE_TOKENS list.
+ */
+export const nativeFromChain = (chain: {
+  nativeCurrency: { name: string; symbol: string; decimals: number };
+}): BridgeToken => ({
+  symbol: chain.nativeCurrency.symbol,
+  name: chain.nativeCurrency.name,
+  address: NATIVE_TOKEN,
+  decimals: chain.nativeCurrency.decimals,
+  logo: "",
+});
+
 const TW = "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains";
 const chainLogo = (slug: string) => `${TW}/${slug}/info/logo.png`;
 const assetLogo = (slug: string, addr: string) => `${TW}/${slug}/assets/${addr}/logo.png`;

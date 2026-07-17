@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
-import { useAccount, useBalance, useSwitchChain, useWalletClient } from "wagmi";
+import { useAccount, useBalance, useSwitchChain } from "wagmi";
+import { getWalletClient } from "wagmi/actions";
 import { useQueryClient } from "@tanstack/react-query";
 import { monad } from "@monolimit/shared";
-import { BRIDGE_CHAINS, BRIDGE_ORIGINS } from "../../config/wagmi.ts";
-import { BRIDGE_TOKENS, isNative, type BridgeToken } from "../../config/tokens.ts";
+import { BRIDGE_CHAINS, BRIDGE_ORIGINS, wagmiConfig } from "../../config/wagmi.ts";
+import { BRIDGE_TOKENS, isNative, nativeFromChain, type BridgeToken } from "../../config/tokens.ts";
 import { executeRelaySteps, getRelayQuote, type RelayQuote } from "../../lib/relay.ts";
 import { useToasts } from "../Toasts.tsx";
 import { ChainIcon, TokenImg, TokenSelectModal, type BridgeChain } from "./ChainSelect.tsx";
@@ -13,6 +14,38 @@ interface Side {
   chain: BridgeChain;
   token: BridgeToken;
 }
+
+/** First token of a chain's static registry, or its synthesized native token —
+ * the 52 generated chains have no BRIDGE_TOKENS entry. */
+const defaultToken = (chain: BridgeChain): BridgeToken =>
+  BRIDGE_TOKENS[chain.id]?.[0] ?? nativeFromChain(chain);
+
+/**
+ * Rough per-chain gas reserve so a native-token Max still pays for the origin
+ * deposit (a Relay multicall, not a plain transfer). ERC-20 Max stays all-in —
+ * gas comes from the untouched native.
+ */
+const GAS_RESERVE: Record<number, bigint> = {
+  1: parseUnits("0.002", 18), // mainnet gas is the pricey one
+  56: parseUnits("0.001", 18),
+  137: parseUnits("0.2", 18), // POL is cheap per unit
+  143: parseUnits("0.15", 18), // Monad — the deposit multicall ran ~0.08 MON live
+};
+// ETH-denominated gas is expensive per unit; alt-native chains burn more units.
+const gasReserve = (chain: BridgeChain) =>
+  GAS_RESERVE[chain.id] ??
+  (chain.nativeCurrency.symbol === "ETH" ? parseUnits("0.001", 18) : parseUnits("0.02", 18));
+
+/** Wallet "user hit cancel" errors come in many shapes — normalize them. */
+const isUserRejection = (err: unknown): boolean => {
+  const e = err as { code?: number; name?: string; message?: string; cause?: unknown };
+  if (e?.code === 4001 || e?.name === "UserRejectedRequestError") return true;
+  if (/user rejected|user denied|rejected the request/i.test(e?.message ?? "")) return true;
+  return e?.cause ? isUserRejection(e.cause) : false;
+};
+
+const trimError = (err: unknown) =>
+  ((err as Error).message ?? "Something went wrong").split("\n")[0]!.slice(0, 140);
 
 /**
  * /bridge — any token on any supported chain → any token on any other,
@@ -23,16 +56,18 @@ export function BridgePage() {
   const { address } = useAccount();
   const { switchChainAsync } = useSwitchChain();
   const [from, setFrom] = useState<Side>({
-    chain: BRIDGE_ORIGINS[1],
-    token: BRIDGE_TOKENS[BRIDGE_ORIGINS[1].id]![0]!,
+    chain: BRIDGE_ORIGINS[1], // Base — the majors are pinned ahead of the generated chains
+    token: defaultToken(BRIDGE_ORIGINS[1]),
   });
   const [to, setTo] = useState<Side>({
     chain: BRIDGE_CHAINS[0], // Monad
-    token: BRIDGE_TOKENS[monad.id]![0]!, // native MON
+    token: defaultToken(BRIDGE_CHAINS[0]), // native MON
   });
   const [selecting, setSelecting] = useState<"from" | "to" | null>(null);
   const [amountText, setAmountText] = useState("");
   const [quote, setQuote] = useState<RelayQuote | null>(null);
+  const [quotedAt, setQuotedAt] = useState(0);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const { data: fromBalance } = useBalance({
     address,
@@ -44,18 +79,31 @@ export function BridgePage() {
     chainId: to.chain.id,
     token: isNative(to.token) ? undefined : to.token.address,
   });
-  const { data: walletClient } = useWalletClient({ chainId: from.chain.id });
+  // Origin-chain native balance — that's what funds gas even when the origin
+  // token is an ERC-20.
+  const { data: fromNative } = useBalance({ address, chainId: from.chain.id });
   const push = useToasts((s) => s.push);
   const queryClient = useQueryClient();
 
   const amount = (() => {
     try {
-      return parseUnits(amountText, from.token.decimals);
+      // parseUnits rejects "1e5", "1,5" & co.; "-1" parses, so clamp non-positive to empty
+      const v = parseUnits(amountText, from.token.decimals);
+      return v > 0n ? v : 0n;
     } catch {
       return 0n;
     }
   })();
   const insufficient = !!fromBalance && amount > fromBalance.value;
+  // Relay's origin-gas estimate vs what's actually left in the wallet — catch
+  // it here instead of letting the wallet grey out its sign button. (fees is
+  // deprecated for display, but fees.gas is still the only origin-gas number;
+  // details.userBalance came back "0" for a funded wallet live, so no help.)
+  const gasFee = quote?.fees?.gas?.amount ? BigInt(quote.fees.gas.amount) : 0n;
+  const gasShort =
+    !!quote &&
+    !!fromNative &&
+    (isNative(from.token) ? amount + gasFee : gasFee) > fromNative.value;
   const sameAsset =
     from.chain.id === to.chain.id &&
     from.token.address.toLowerCase() === to.token.address.toLowerCase();
@@ -63,6 +111,7 @@ export function BridgePage() {
   // Re-quote whenever the pair/amount changes (debounced).
   useEffect(() => {
     setQuote(null);
+    setQuoteError(null);
     if (!address || amount === 0n || insufficient || sameAsset) return;
     const t = setTimeout(async () => {
       try {
@@ -77,11 +126,13 @@ export function BridgePage() {
           recipient: address,
         });
         setQuote(q);
+        setQuotedAt(Date.now());
         setStatus(null);
       } catch (err) {
         setStatus(null);
         setQuote(null);
-        push("error", (err as Error).message.split("\n")[0]!.slice(0, 140));
+        // inline, not a toast — this fires on every debounce retry while typing
+        setQuoteError(trimError(err));
       }
     }, 500);
     return () => clearTimeout(t);
@@ -109,15 +160,48 @@ export function BridgePage() {
   const bridge = async () => {
     if (!quote || !address) return;
     try {
+      // "Quotes are revalidated when being filled, keep your quotes as fresh
+      // as possible" — refresh anything older than ~30s before executing.
+      let q = quote;
+      if (Date.now() - quotedAt > 30_000) {
+        setStatus("Refreshing quote…");
+        q = await getRelayQuote({
+          user: address,
+          originChainId: from.chain.id,
+          destinationChainId: to.chain.id,
+          originCurrency: from.token.address,
+          destinationCurrency: to.token.address,
+          amount: amount.toString(),
+          recipient: address,
+        });
+        setQuote(q);
+        setQuotedAt(Date.now());
+      }
       setStatus(`Switching to ${from.chain.name}…`);
-      await switchChainAsync({ chainId: from.chain.id });
-      if (!walletClient) throw new Error("wallet client unavailable — try again");
-      await executeRelaySteps(quote, walletClient, setStatus);
+      try {
+        // wagmi falls back to wallet_addEthereumChain for chains the wallet
+        // doesn't know — all 59 carry rpcUrls + explorers, so that just works
+        // unless the user declines the prompt.
+        await switchChainAsync({ chainId: from.chain.id });
+      } catch (err) {
+        throw new Error(
+          isUserRejection(err)
+            ? `Chain switch declined — approve ${from.chain.name} in your wallet to continue`
+            : `Couldn't switch to ${from.chain.name} — add it to your wallet and retry`,
+        );
+      }
+      // Fetch the client AFTER the switch — a useWalletClient hook value here
+      // would be a stale pre-switch snapshot (undefined for foreign chains).
+      const walletClient = await getWalletClient(wagmiConfig, {
+        chainId: from.chain.id,
+      });
+      const destTx = await executeRelaySteps(q, walletClient, setStatus);
       push(
         "success",
-        isSwap
+        (isSwap
           ? `Swapped — ${to.token.symbol} is in your wallet`
-          : `Bridged — ${to.token.symbol} has landed on ${to.chain.name}`,
+          : `Bridged — ${to.token.symbol} has landed on ${to.chain.name}`) +
+          (destTx ? ` · ${destTx.slice(0, 10)}…` : ""),
       );
       queryClient.invalidateQueries();
       setAmountText("");
@@ -128,7 +212,7 @@ export function BridgePage() {
         await switchChainAsync({ chainId: monad.id }).catch(() => {});
       }
     } catch (err) {
-      push("error", (err as Error).message.split("\n")[0]!.slice(0, 140));
+      push("error", isUserRejection(err) ? "Cancelled in wallet" : trimError(err));
     } finally {
       setStatus(null);
     }
@@ -141,6 +225,16 @@ export function BridgePage() {
   const outFormatted = quote?.details?.currencyOut?.amountFormatted;
   const outUsd = quote?.details?.currencyOut?.amountUsd;
   const rate = quote?.details?.rate;
+  // Official display mapping for details.expandedPriceImpact (the fees object
+  // is deprecated): relay → "Provider fee", swap + execution → "Swap impact".
+  // At dust amounts the flat execution fee dominates the in/out difference —
+  // this is what explains it.
+  const impact = quote?.details?.expandedPriceImpact;
+  const swapImpactUsd = impact
+    ? Number(impact.swap?.usd ?? 0) + Number(impact.execution?.usd ?? 0)
+    : null;
+  const providerFeeUsd = impact?.relay?.usd != null ? Number(impact.relay.usd) : null;
+  const eta = quote?.details?.timeEstimate;
 
   const cta = !address
     ? "Connect wallet"
@@ -148,14 +242,18 @@ export function BridgePage() {
       ? "Select different tokens"
       : insufficient
         ? `Insufficient ${from.token.symbol}`
-        : (status ??
-          (quote
-            ? isSwap
-              ? "Swap"
-              : "Bridge"
-            : amount === 0n
-              ? "Enter an amount"
-              : "Getting quote…"));
+        : gasShort
+          ? `Not enough ${from.chain.nativeCurrency.symbol} for gas`
+          : (status ??
+            (quote
+              ? isSwap
+                ? "Swap"
+                : "Bridge"
+              : quoteError
+                ? "No route"
+                : amount === 0n
+                  ? "Enter an amount"
+                  : "Getting quote…"));
 
   return (
     <div className="h-full overflow-y-auto">
@@ -184,9 +282,13 @@ export function BridgePage() {
                   {balFmt(fromBalance)} {from.token.symbol}
                   {fromBalance!.value > 0n && (
                     <button
-                      onClick={() =>
-                        setAmountText(formatUnits(fromBalance!.value, fromBalance!.decimals))
-                      }
+                      onClick={() => {
+                        // native Max leaves gas behind; ERC-20s can go all-in
+                        const reserve = isNative(from.token) ? gasReserve(from.chain) : 0n;
+                        const v =
+                          fromBalance!.value > reserve ? fromBalance!.value - reserve : 0n;
+                        setAmountText(formatUnits(v, fromBalance!.decimals));
+                      }}
                       className="ml-1.5 rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand hover:bg-brand/25"
                     >
                       Max
@@ -235,11 +337,22 @@ export function BridgePage() {
         {/* CTA */}
         <button
           onClick={bridge}
-          disabled={!quote || !!status || insufficient || sameAsset}
+          disabled={!quote || !!status || insufficient || sameAsset || gasShort}
           className="monad-gradient mt-3 w-full rounded-2xl py-3.5 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {cta}
         </button>
+
+        {/* quote failures land here, not in a toast — the effect retries every debounce */}
+        {quoteError && (
+          <div className="mt-2 px-1 text-center text-xs text-down">{quoteError}</div>
+        )}
+        {gasShort && !quoteError && (
+          <div className="mt-2 px-1 text-center text-xs text-down">
+            Amount + estimated gas exceeds your {from.chain.nativeCurrency.symbol} balance —
+            lower the amount a touch
+          </div>
+        )}
 
         {/* quote details */}
         <div className="mt-3 flex flex-col gap-1.5 px-1 text-xs text-muted">
@@ -259,9 +372,14 @@ export function BridgePage() {
                 : `${from.chain.name} → ${to.chain.name} · Relay`}
             </span>
           </div>
+          {/* fee breakdown — where the in/out difference actually goes */}
+          <UsdRow label="Swap impact" usd={swapImpactUsd} />
+          <UsdRow label="Provider fee" usd={providerFeeUsd} />
           <div className="flex justify-between">
             <span>Est. time</span>
-            <span className="text-fg">seconds</span>
+            <span className="text-fg">
+              {eta != null ? (eta <= 60 ? `~${eta}s` : `~${Math.round(eta / 60)} min`) : "seconds"}
+            </span>
           </div>
         </div>
       </div>
@@ -278,6 +396,19 @@ export function BridgePage() {
           onClose={() => setSelecting(null)}
         />
       )}
+    </div>
+  );
+}
+
+function UsdRow({ label, usd }: { label: string; usd: number | null }) {
+  if (usd == null || Number.isNaN(usd) || usd === 0) return null;
+  const abs = Math.abs(usd);
+  return (
+    <div className="flex justify-between">
+      <span>{label}</span>
+      <span className="tabular-nums text-fg">
+        {abs < 0.005 ? "<$0.01" : `${usd < 0 ? "-" : ""}$${abs.toFixed(2)}`}
+      </span>
     </div>
   );
 }

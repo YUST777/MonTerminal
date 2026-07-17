@@ -4,41 +4,47 @@ import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 import { useAccount, useBalance } from "wagmi";
 import { BRIDGE_CHAINS } from "../../config/wagmi.ts";
-import { BRIDGE_TOKENS, isNative, type BridgeToken } from "../../config/tokens.ts";
+import { BRIDGE_TOKENS, isNative, nativeFromChain, type BridgeToken } from "../../config/tokens.ts";
 import { fetchRelayTokens } from "../../lib/relay.ts";
 
 export type BridgeChain = (typeof BRIDGE_CHAINS)[number];
 
 /**
- * High-quality official chain logos from the TrustWallet assets repo
- * (github.com/trustwallet/assets) — plain raw.githubusercontent URLs.
+ * Chain logos straight from Relay's asset CDN — one URL pattern covers every
+ * chain they bridge, keyed by chain id. Monad keeps the TrustWallet mark for
+ * quality (Relay's thumbnail is low-res).
  */
-const LOGO_SLUG: Record<string, string> = {
-  Ethereum: "ethereum",
-  Base: "base",
-  "Arbitrum One": "arbitrum",
-  "OP Mainnet": "optimism",
-  "BNB Smart Chain": "smartchain",
-  Polygon: "polygon",
-  Monad: "monad",
+const LOGO_URL: Record<number, string> = {
+  143: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/monad/info/logo.png",
 };
+
+/** wagmi/chains ships verbose canonical names — trim them for the UI. */
+const SHORT_NAME: Record<string, string> = {
+  "BNB Smart Chain": "BNB Chain",
+  "Arbitrum One": "Arbitrum",
+  "OP Mainnet": "Optimism",
+};
+const chainLabel = (c: { name: string }) => SHORT_NAME[c.name] ?? c.name;
 
 export function ChainIcon({
   chain,
   size = "size-6",
 }: {
-  chain: { name: string };
+  chain: { id: number; name: string };
   size?: string;
 }) {
-  const [broken, setBroken] = useState(false);
-  const slug = LOGO_SLUG[chain.name];
-  if (slug && !broken) {
+  // Track which URL 404'd, not a bare boolean — the same slot re-renders with
+  // a different chain (TokenButton badge, rail), and a stale flag would stick.
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
+  const url =
+    LOGO_URL[chain.id] ?? `https://assets.relay.link/icons/${chain.id}/light.png`;
+  if (brokenUrl !== url) {
     return (
       <img
-        src={`https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${slug}/info/logo.png`}
+        src={url}
         alt=""
         loading="lazy"
-        onError={() => setBroken(true)}
+        onError={() => setBrokenUrl(url)}
         className={`${size} shrink-0 rounded-full object-cover`}
       />
     );
@@ -59,14 +65,14 @@ export function TokenImg({
   token: BridgeToken;
   size?: string;
 }) {
-  const [broken, setBroken] = useState(false);
-  if (token.logo && !broken) {
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
+  if (token.logo && brokenUrl !== token.logo) {
     return (
       <img
         src={token.logo}
         alt=""
         loading="lazy"
-        onError={() => setBroken(true)}
+        onError={() => setBrokenUrl(token.logo)}
         className={`${size} shrink-0 rounded-full object-cover`}
       />
     );
@@ -81,9 +87,10 @@ export function TokenImg({
 }
 
 /**
- * Compact token picker — Uniswap-style: a chain strip on top switches the
- * origin network, below it every bridgeable token on that chain in a
- * 2-col card grid with live balances.
+ * Token picker, Relay-style two-pane: a searchable chain rail on the left
+ * (names, not a wall of anonymous icons) switches the origin network; the
+ * right pane lists every bridgeable token on that chain with live balances.
+ * On phones the rail collapses into a horizontal chain strip.
  */
 export function TokenSelectModal({
   chain,
@@ -97,7 +104,14 @@ export function TokenSelectModal({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const [chainQuery, setChainQuery] = useState("");
   const [activeChain, setActiveChain] = useState<BridgeChain>(chain);
+
+  const chains = useMemo(() => {
+    const q = chainQuery.trim().toLowerCase();
+    if (!q) return BRIDGE_CHAINS;
+    return BRIDGE_CHAINS.filter((c) => chainLabel(c).toLowerCase().includes(q));
+  }, [chainQuery]);
 
   // Live curated list from Relay; static registry fills in while loading.
   const { data: liveList } = useQuery({
@@ -129,7 +143,9 @@ export function TokenSelectModal({
 
   const tokens = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const base = liveList ?? BRIDGE_TOKENS[activeChain.id] ?? [];
+    // static registry (or the bare native token) fills in while Relay loads
+    const base =
+      liveList ?? BRIDGE_TOKENS[activeChain.id] ?? [nativeFromChain(activeChain)];
     const local = base.filter(
       (t) =>
         !q || t.symbol.toLowerCase().includes(q) || t.name.toLowerCase().includes(q),
@@ -151,89 +167,135 @@ export function TokenSelectModal({
               document.getElementById("token-search") as HTMLInputElement | null
             )?.focus();
           }}
-          className="animate-sheet-in fixed left-1/2 top-[8vh] z-50 w-[600px] max-w-[calc(100vw-1rem)] -translate-x-1/2 rounded-3xl border border-line bg-raised p-4 shadow-2xl outline-none sm:top-[16vh] sm:p-6"
+          className="animate-sheet-in fixed left-1/2 top-[6vh] z-50 flex h-[80vh] max-h-[620px] w-[760px] max-w-[calc(100vw-1rem)] -translate-x-1/2 overflow-hidden rounded-3xl border border-line bg-raised shadow-2xl outline-none sm:top-[10vh]"
         >
-          <div className="mb-4 flex items-center gap-3 sm:mb-5 sm:gap-4">
-            <Dialog.Title className="hidden shrink-0 text-lg font-semibold sm:block">
-              Select a token
-            </Dialog.Title>
-            <div className="flex flex-1 items-center gap-2.5 rounded-full bg-bg/60 px-4 py-2.5 ring-1 ring-line transition-shadow focus-within:ring-brand">
-              <SearchGlyph />
-              <input
-                id="token-search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search tokens"
-                spellCheck={false}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
-              />
-            </div>
-            <Dialog.Close
-              aria-label="Close"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-overlay text-muted transition-colors hover:text-fg"
-            >
-              <CloseGlyph />
-            </Dialog.Close>
-          </div>
+          <Dialog.Title className="sr-only">Select a token</Dialog.Title>
 
-          {/* chain strip — pick the origin network; scrolls sideways on phones.
-              The active chain expands into a labeled pill so it reads instantly. */}
-          <div className="mb-4 flex items-center gap-2 overflow-x-auto sm:mb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {BRIDGE_CHAINS.map((c) => {
-              const active = activeChain.id === c.id;
-              return (
-                <button
-                  key={c.id}
-                  title={c.name}
-                  onClick={() => setActiveChain(c)}
-                  className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 transition-all duration-150 active:scale-95 ${
-                    active
-                      ? "bg-brand/25 ring-1 ring-brand"
-                      : "opacity-60 bg-overlay/40 ring-1 ring-transparent hover:opacity-100 hover:bg-overlay hover:ring-line"
-                  }`}
-                >
-                  <ChainIcon chain={c} size="size-6" />
-                  {active && (
-                    <span className="whitespace-nowrap text-[13px] font-semibold">
-                      {c.name === "BNB Smart Chain" ? "BNB Chain" : c.name}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* token grid */}
-          <div className="grid max-h-[55vh] grid-cols-1 gap-2.5 overflow-y-auto sm:max-h-[380px] sm:grid-cols-2">
-            {tokens.map((t) => (
-              <TokenCard
-                key={t.address + t.symbol}
-                chain={activeChain}
-                token={t}
-                active={activeChain.id === chain.id && t.address === token.address}
-                onPick={() => onSelect(activeChain, t)}
-              />
-            ))}
-          </div>
-          {tokens.length === 0 &&
-            (searching ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted">
-                <Spinner /> Searching the catalog…
+          {/* chain rail — every EVM origin Relay bridges from, majors pinned first */}
+          <aside className="hidden w-[212px] shrink-0 flex-col border-r border-line bg-bg/40 sm:flex">
+            <div className="p-3 pb-2">
+              <div className="flex items-center gap-2 rounded-full bg-overlay/60 px-3 py-2 ring-1 ring-line transition-shadow focus-within:ring-brand">
+                <SearchGlyph />
+                <input
+                  value={chainQuery}
+                  onChange={(e) => setChainQuery(e.target.value)}
+                  placeholder="Search chains"
+                  spellCheck={false}
+                  className="w-full bg-transparent text-[13px] outline-none placeholder:text-muted"
+                />
               </div>
-            ) : searchFailed ? (
-              <div className="py-6 text-center text-sm text-muted">
-                Search is unreachable right now — check your connection and try again.
-              </div>
-            ) : (
-              <div className="py-6 text-center text-sm text-muted">
-                No token matches "{query}"
-              </div>
-            ))}
-          {tokens.length > 0 && searching && (
-            <div className="flex items-center justify-center gap-2 pt-3 text-xs text-muted">
-              <Spinner /> Searching the catalog…
             </div>
-          )}
+            <div className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3 [scrollbar-width:thin] [scrollbar-color:var(--color-line)_transparent]">
+              {chains.map((c) => {
+                const active = activeChain.id === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setActiveChain(c)}
+                    className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${
+                      active
+                        ? "bg-brand/15 text-fg"
+                        : "text-muted hover:bg-overlay hover:text-fg"
+                    }`}
+                  >
+                    <ChainIcon chain={c} size="size-5" />
+                    <span className="truncate">{chainLabel(c)}</span>
+                    {active && (
+                      <span className="ml-auto size-1.5 shrink-0 rounded-full bg-brand" />
+                    )}
+                  </button>
+                );
+              })}
+              {chains.length === 0 && (
+                <div className="px-2.5 py-4 text-center text-xs text-muted">
+                  No chain matches "{chainQuery}"
+                </div>
+              )}
+            </div>
+          </aside>
+
+          {/* token pane */}
+          <section className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
+            <div className="mb-3 flex items-center gap-3 sm:mb-4">
+              <div className="flex flex-1 items-center gap-2.5 rounded-full bg-bg/60 px-4 py-2.5 ring-1 ring-line transition-shadow focus-within:ring-brand">
+                <SearchGlyph />
+                <input
+                  id="token-search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={`Search tokens on ${chainLabel(activeChain)}`}
+                  spellCheck={false}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
+                />
+              </div>
+              <Dialog.Close
+                aria-label="Close"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-overlay text-muted transition-colors hover:text-fg"
+              >
+                <CloseGlyph />
+              </Dialog.Close>
+            </div>
+
+            {/* phone fallback: the rail collapses into a horizontal chain strip */}
+            <div className="mb-3 flex items-center gap-2 overflow-x-auto sm:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {BRIDGE_CHAINS.map((c) => {
+                const active = activeChain.id === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    title={chainLabel(c)}
+                    onClick={() => setActiveChain(c)}
+                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+                      active
+                        ? "bg-brand/15"
+                        : "bg-overlay/40 opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <ChainIcon chain={c} size="size-5" />
+                    {active && (
+                      <span className="whitespace-nowrap text-[13px] font-semibold">
+                        {chainLabel(c)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex-1 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--color-line)_transparent]">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {tokens.map((t) => (
+                  <TokenCard
+                    key={t.address + t.symbol}
+                    chain={activeChain}
+                    token={t}
+                    active={activeChain.id === chain.id && t.address === token.address}
+                    onPick={() => onSelect(activeChain, t)}
+                  />
+                ))}
+              </div>
+              {tokens.length === 0 &&
+                (searching ? (
+                  <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted">
+                    <Spinner /> Searching the catalog…
+                  </div>
+                ) : searchFailed ? (
+                  <div className="py-6 text-center text-sm text-muted">
+                    Search is unreachable right now — check your connection and try
+                    again.
+                  </div>
+                ) : (
+                  <div className="py-6 text-center text-sm text-muted">
+                    No token matches "{query}"
+                  </div>
+                ))}
+              {tokens.length > 0 && searching && (
+                <div className="flex items-center justify-center gap-2 pt-3 text-xs text-muted">
+                  <Spinner /> Searching the catalog…
+                </div>
+              )}
+            </div>
+          </section>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

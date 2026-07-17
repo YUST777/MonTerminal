@@ -7,10 +7,24 @@ import {
 import { createConfig, fallback, http } from "wagmi";
 import { arbitrum, base, bsc, mainnet, optimism, polygon } from "wagmi/chains";
 import { monad, ADDRESSES } from "@monolimit/shared";
-import type { Address } from "viem";
+import type { Address, Transport } from "viem";
+import { zeroAddress } from "viem";
+import { EXTRA_ORIGINS } from "./bridgeChains.ts";
 
-/** Origin chains supported by the in-app Relay bridge. */
-export const BRIDGE_ORIGINS = [mainnet, base, arbitrum, optimism, bsc, polygon] as const;
+/**
+ * Origin chains supported by the in-app Relay bridge — the six majors pinned
+ * first (BridgePage defaults to index 1 = Base), then every other EVM chain
+ * Relay bridges from, alphabetically (see bridgeChains.ts).
+ */
+export const BRIDGE_ORIGINS = [
+  mainnet,
+  base,
+  arbitrum,
+  optimism,
+  bsc,
+  polygon,
+  ...EXTRA_ORIGINS,
+] as const;
 
 /** Every chain pickable in the bridge (Monad first — it's home). */
 export const BRIDGE_CHAINS = [monad, ...BRIDGE_ORIGINS] as const;
@@ -36,27 +50,46 @@ const connectors = connectorsForWallets(
   { appName: "MonoLimit", projectId: wcProjectId ?? "monolimit-dev" },
 );
 
+// Bare http() rides each chain's own default RPC — for the generated chains
+// that's the endpoint Relay itself uses. The majors get explicit overrides:
+// viem's defaults there (eth.merkle.io & co.) reject browser CORS, while
+// publicnode endpoints allow it, so ENS lookups + bridge quoting stay quiet.
+const transports = Object.fromEntries(
+  BRIDGE_CHAINS.map((c) => [c.id, http()]),
+) as Record<(typeof BRIDGE_CHAINS)[number]["id"], Transport>;
+// Browser-curated Monad list: rpc2 rate-limits hard and rpc3 times out,
+// so only the two healthy endpoints ship to the client.
+transports[monad.id] = fallback([
+  http("https://rpc.monad.xyz"),
+  http("https://rpc1.monad.xyz"),
+]);
+transports[mainnet.id] = http("https://ethereum-rpc.publicnode.com");
+transports[base.id] = fallback([
+  http("https://base-rpc.publicnode.com"),
+  http("https://mainnet.base.org"),
+]);
+transports[arbitrum.id] = http("https://arbitrum-one-rpc.publicnode.com");
+transports[optimism.id] = http("https://optimism-rpc.publicnode.com");
+transports[bsc.id] = http("https://bsc-rpc.publicnode.com");
+transports[polygon.id] = http("https://polygon-bor-rpc.publicnode.com");
+
 export const wagmiConfig = createConfig({
   connectors,
-  chains: [monad, ...BRIDGE_ORIGINS],
-  // viem's default public RPCs (eth.merkle.io & co.) reject browser CORS —
-  // publicnode endpoints allow it, so ENS lookups + bridge quoting stay quiet.
-  transports: {
-    // Browser-curated Monad list: rpc2 rate-limits hard and rpc3 times out,
-    // so only the two healthy endpoints ship to the client.
-    [monad.id]: fallback([http("https://rpc.monad.xyz"), http("https://rpc1.monad.xyz")]),
-    [mainnet.id]: http("https://ethereum-rpc.publicnode.com"),
-    [base.id]: fallback([
-      http("https://base-rpc.publicnode.com"),
-      http("https://mainnet.base.org"),
-    ]),
-    [arbitrum.id]: http("https://arbitrum-one-rpc.publicnode.com"),
-    [optimism.id]: http("https://optimism-rpc.publicnode.com"),
-    [bsc.id]: http("https://bsc-rpc.publicnode.com"),
-    [polygon.id]: http("https://polygon-bor-rpc.publicnode.com"),
-  },
+  chains: BRIDGE_CHAINS,
+  transports,
 });
 
 /** Uniswap-v3 book (env override wins while iterating locally); fork-DEX books come from MARKETS. */
 export const BOOK_ADDRESS: Address =
   (import.meta.env.VITE_BOOK_ADDRESS as Address | undefined) ?? ADDRESSES.LIMIT_ORDER_BOOK;
+
+/**
+ * A market's usable order-book address, or null when none is deployed.
+ * The registry ships 0x0 until `forge script script/Deploy.s.sol` runs, so a
+ * zero book falls through to the env override rather than shadowing it —
+ * and callers get null instead of approving/placing against the zero address.
+ */
+export function resolveBook(book: Address | undefined): Address | null {
+  if (book && book !== zeroAddress) return book;
+  return BOOK_ADDRESS !== zeroAddress ? BOOK_ADDRESS : null;
+}
