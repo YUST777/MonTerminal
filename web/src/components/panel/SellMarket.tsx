@@ -1,18 +1,21 @@
 import { useState } from "react";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useSwitchChain, useWalletClient } from "wagmi";
+import { getWalletClient } from "wagmi/actions";
 import { useQueryClient } from "@tanstack/react-query";
 import { monad } from "@monolimit/shared";
 import { executeRelaySteps, getRelayQuote, NATIVE } from "../../lib/relay.ts";
 import { useTokenBalance } from "../../hooks/trade.ts";
 import { fmtAmount, formatUnitsTrimmed, parseAmount } from "../../lib/format.ts";
+import { wagmiConfig } from "../../config/wagmi.ts";
 import { useTerminal } from "../../state/terminal.ts";
 import { useToasts } from "../Toasts.tsx";
 
 /** Instant market sell: token → native MON via Relay (approval is a Relay step). */
 export function SellMarket() {
   const { token } = useTerminal();
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const { switchChainAsync } = useSwitchChain();
   const { data: balance } = useTokenBalance(token?.address);
   const [amountText, setAmountText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -37,7 +40,13 @@ export function SellMarket() {
         amount: amount.toString(),
       });
       setQuoteOut(quote.details?.currencyOut?.amountFormatted ?? null);
-      await executeRelaySteps(quote, walletClient, setStatus);
+      // the swap executes on Monad — pull the wallet back if it wandered
+      if (chainId !== monad.id) {
+        setStatus("switching network…");
+        await switchChainAsync({ chainId: monad.id });
+      }
+      const client = await getWalletClient(wagmiConfig, { chainId: monad.id });
+      await executeRelaySteps(quote, client, setStatus);
       push("success", `Sold ${token.symbol} for MON`);
       queryClient.invalidateQueries();
     } catch (err) {

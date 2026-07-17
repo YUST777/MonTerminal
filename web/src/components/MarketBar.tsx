@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { isAddress } from "viem";
-import { MARKETS } from "@monolimit/shared";
+import { MARKETS, monad } from "@monolimit/shared";
 import {
   lookupTopPool,
   useMarketLookup,
+  useOnchainIcons,
   usePairsMedia,
   useTokenMedia,
   useTopPools,
@@ -160,11 +161,12 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
   const [dexTab, setDexTab] = useState("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "volume", dir: -1 });
   const [resolving, setResolving] = useState<string | null>(null);
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   const isAddr = isAddress(query.trim());
   const { data: lookup, isFetching, error } = useMarketLookup(query);
   const { data: pools, isLoading } = useTopPools(true);
   const { data: media } = usePairsMedia(pools?.map((p) => p.address));
+  const { data: chainIcons } = useOnchainIcons(pools?.map((p) => p.baseToken));
   const setMarket = useTerminal((s) => s.setMarket);
   const push = useToasts((s) => s.push);
 
@@ -303,7 +305,11 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
             >
               <span className="flex min-w-0 items-center gap-1.5">
                 <TokenIcon
-                  url={media?.get(p.address.toLowerCase()) ?? p.imageUrl}
+                  url={
+                    media?.get(p.address.toLowerCase()) ??
+                    p.imageUrl ??
+                    chainIcons?.get(p.baseToken.toLowerCase())
+                  }
                   symbol={p.baseSymbol}
                   size="size-4"
                 />

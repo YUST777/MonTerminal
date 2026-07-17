@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { useAccount, useBalance, useWalletClient } from "wagmi";
+import { useAccount, useBalance, useSwitchChain, useWalletClient } from "wagmi";
+import { getWalletClient } from "wagmi/actions";
 import { monad } from "@monolimit/shared";
 import { executeRelaySteps, getRelayQuote, NATIVE } from "../../lib/relay.ts";
 import { fmtAmount, parseAmount } from "../../lib/format.ts";
+import { wagmiConfig } from "../../config/wagmi.ts";
 import { useTerminal } from "../../state/terminal.ts";
 import { useToasts } from "../Toasts.tsx";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,9 +12,15 @@ import { useQueryClient } from "@tanstack/react-query";
 /** Instant market buy: native MON → token via Relay. */
 export function BuyMarket() {
   const { token } = useTerminal();
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const { data: monBalance } = useBalance({ address, query: { refetchInterval: 5_000 } });
+  const { switchChainAsync } = useSwitchChain();
+  // pinned to Monad — the spendable balance, not whatever chain the wallet sits on
+  const { data: monBalance } = useBalance({
+    address,
+    chainId: monad.id,
+    query: { refetchInterval: 5_000 },
+  });
   const [amountText, setAmountText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [quoteOut, setQuoteOut] = useState<string | null>(null);
@@ -35,7 +43,13 @@ export function BuyMarket() {
         amount: amount.toString(),
       });
       setQuoteOut(quote.details?.currencyOut?.amountFormatted ?? null);
-      await executeRelaySteps(quote, walletClient, setStatus);
+      // the swap executes on Monad — pull the wallet back if it wandered
+      if (chainId !== monad.id) {
+        setStatus("switching network…");
+        await switchChainAsync({ chainId: monad.id });
+      }
+      const client = await getWalletClient(wagmiConfig, { chainId: monad.id });
+      await executeRelaySteps(quote, client, setStatus);
       push("success", `Bought ${token.symbol}`);
       queryClient.invalidateQueries();
     } catch (err) {
@@ -66,10 +80,12 @@ export function BuyMarket() {
               onClick={() =>
                 monBalance &&
                 setAmountText(
-                  // leave 0.5 MON for gas on the 100% preset
-                  (
+                  // leave MON for gas on the 100% preset (Relay deposit ran
+                  // ~0.08 MON live — see BridgePage GAS_RESERVE), never go negative
+                  Math.max(
+                    0,
                     Number((monBalance.value * BigInt(p)) / 100n) / 1e18 -
-                    (p === 100 ? 0.5 : 0)
+                      (p === 100 ? 0.15 : 0),
                   ).toFixed(4),
                 )
               }

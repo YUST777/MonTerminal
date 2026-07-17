@@ -1,8 +1,85 @@
-import { useState } from "react";
-import { fmtAmount } from "../../lib/format.ts";
+import { useEffect, useState } from "react";
+import { fmtAmount, fmtPrice } from "../../lib/format.ts";
 import { useToasts } from "../Toasts.tsx";
 
 /* ── bits shared by every trade form ─────────────────────────────────────── */
+
+/**
+ * The whole limit UX in one box: a price you type (or tap a ±% chip for),
+ * with the live price right under it. No sliders, no trigger-distance math.
+ */
+export function PricePicker({
+  label,
+  current,
+  quoteSymbol,
+  value,
+  setValue,
+  chips,
+}: {
+  label: string;
+  current: number | null;
+  quoteSymbol: string;
+  value: number | null;
+  setValue: (v: number | null) => void;
+  chips: number[];
+}) {
+  const [text, setText] = useState("");
+  // keep the input text authoritative; chips overwrite it
+  useEffect(() => {
+    if (value == null && text !== "") setText("");
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = (raw: string) => {
+    setText(raw);
+    const n = Number(raw);
+    setValue(raw.trim() !== "" && Number.isFinite(n) && n > 0 ? n : null);
+  };
+  const chip = (p: number) => {
+    if (current == null) return;
+    const target = current * (1 + p / 100);
+    const pretty = Number(target.toPrecision(6)).toString();
+    setText(pretty);
+    setValue(target);
+  };
+  const activeChip =
+    current != null && value != null ? Math.round((value / current - 1) * 100) : null;
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[11px]">
+        <span className="text-muted">{label}</span>
+        <span className="text-muted">
+          now {current != null ? `${fmtPrice(current)} ${quoteSymbol}` : "—"}
+        </span>
+      </div>
+      <input
+        type="text"
+        inputMode="decimal"
+        placeholder={current != null ? fmtPrice(current) : "price"}
+        value={text}
+        onChange={(e) => apply(e.target.value)}
+        className="w-full rounded border border-line bg-bg px-2 py-1.5 text-right text-sm tabular-nums focus:border-brand focus:outline-none"
+      />
+      <div className="mt-1 flex gap-1">
+        {chips.map((p) => (
+          <button
+            key={p}
+            onClick={() => chip(p)}
+            className={`flex-1 rounded border px-1 py-0.5 text-[11px] ${
+              activeChip === p
+                ? p < 0
+                  ? "border-down text-down"
+                  : "border-up text-up"
+                : "border-line text-muted hover:text-fg"
+            }`}
+          >
+            {p > 0 ? `+${p}%` : `−${-p}%`}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function PctOfBalance({
   balance,

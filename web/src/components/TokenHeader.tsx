@@ -1,22 +1,36 @@
-import { useLivePrice, usePoolStats } from "../hooks/market.ts";
+import { useLivePrice, usePoolStats, useTokenMedia } from "../hooks/market.ts";
 import { fmtPct, fmtPrice, fmtUsd, shortAddr } from "../lib/format.ts";
 import { useTerminal } from "../state/terminal.ts";
+
+/** "https://x.com/foo/…" → "x.com" — social links render as their host. */
+function linkHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Stats strip below the market bar: big USD price + 24H change, then
  * divider-separated inline stats — pool price, volume, liquidity, FDV.
  * The token itself is named by the market selector right above, so no
  * icon/symbol here. On-chain slot0 drives the quote price (same source
- * the contract reads).
+ * the contract reads). Launchpad tokens also surface their social links
+ * (from on-chain getTokenInfo metadata).
  */
 export function TokenHeader() {
   const { token, pool } = useTerminal();
   const { data: live } = useLivePrice(pool, token);
   const { data: stats } = usePoolStats(pool);
+  const { data: media } = useTokenMedia(token?.address);
 
   if (!token || !pool) return null;
   const chg = stats?.change24hPct;
   const up = (chg ?? 0) >= 0;
+  const links = (media?.links ?? [])
+    .map((url) => ({ url, host: linkHost(url) }))
+    .filter((l): l is { url: string; host: string } => l.host !== null);
 
   return (
     <div className="flex h-8 items-center gap-3 overflow-x-auto border-b border-line bg-bg px-3 whitespace-nowrap">
@@ -58,6 +72,18 @@ export function TokenHeader() {
       >
         {shortAddr(token.address)} ↗
       </a>
+      {links.map((l) => (
+        <a
+          key={l.url}
+          href={l.url}
+          target="_blank"
+          rel="noreferrer"
+          title={l.url}
+          className="text-[11px] text-muted hover:text-brand"
+        >
+          {l.host} ↗
+        </a>
+      ))}
     </div>
   );
 }

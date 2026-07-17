@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, usePublicClient } from "wagmi";
-import { createPublicClient, fallback, http, type Address } from "viem";
+import { createPublicClient, http, type Address } from "viem";
 import { LIMIT_ORDER_BOOK_ABI, MARKETS, monad, type Market } from "@monolimit/shared";
+import { resolveBook } from "../config/wagmi.ts";
 
 export const KIND = { TakeProfit: 0, StopLoss: 1 } as const;
 export const STATUS = { Nonexistent: 0, Open: 1, Executed: 2, Cancelled: 3 } as const;
@@ -41,19 +42,17 @@ export function orderKey(o: Pick<UserOrder, "book" | "orderId">) {
  * OrderPlaced logs filtered by maker + one getOrders multicall per book for
  * live status. Events are the contracts' only data feed — no indexer.
  *
- * rpc.monad.xyz hard-caps eth_getLogs at a 100-block range (413 / -32614),
- * so event queries go through a dedicated client on rpc1, which serves
- * 500k-block ranges. Results are cached per maker+book: each refetch only
- * scans blocks that arrived since the last one.
+ * Event queries run on a dedicated client with patient retries against
+ * rpc1.monad.xyz (rpc.monad.xyz caps eth_getLogs at ~100 blocks; rpc1 serves
+ * 500k-block ranges with CORS), paged in 50k-block chunks. Results are
+ * cached per maker+book: each refetch only scans blocks that arrived since
+ * the last one.
  */
 const LOG_PAGE = 50_000n;
 
 export const logClient = createPublicClient({
   chain: monad,
-  transport: fallback([
-    http("https://rpc1.monad.xyz", { retryCount: 3, retryDelay: 800 }),
-    http("https://rpc2.monad.xyz", { retryCount: 1 }),
-  ]),
+  transport: http("https://rpc1.monad.xyz", { retryCount: 3, retryDelay: 800 }),
 });
 
 interface LogCache {
@@ -70,15 +69,22 @@ const logCaches = new Map<string, LogCache>();
 
 export function useUserOrders() {
   const { address } = useAccount();
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
 
   return useQuery({
     queryKey: ["user-orders", address],
     enabled: !!client && !!address,
     refetchInterval: 5_000,
     queryFn: async (): Promise<UserOrder[]> => {
+      // books that aren't deployed yet (0x0 in the registry) have no orders —
+      // skip them instead of paging getLogs against the zero address
+      const books = MARKETS.flatMap((m) => {
+        const book = resolveBook(m.book);
+        return book ? [{ ...m, book }] : [];
+      });
+      if (books.length === 0) return [];
       const latest = await client!.getBlockNumber();
-      const perBook = await Promise.all(MARKETS.map((m) => fetchBookOrders(m, latest)));
+      const perBook = await Promise.all(books.map((m) => fetchBookOrders(m, latest)));
       return perBook.flat().sort((a, b) => (b.orderId > a.orderId ? 1 : -1));
     },
   });

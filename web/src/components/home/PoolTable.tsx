@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { usePublicClient } from "wagmi";
-import { isAddress, type Address } from "viem";
-import { MARKETS } from "@monolimit/shared";
-import { lookupMarket, lookupTopPool, usePairsMedia } from "../../hooks/market.ts";
+import { MARKETS, monad } from "@monolimit/shared";
+import { lookupTopPool, useOnchainIcons, usePairsMedia } from "../../hooks/market.ts";
 import type { TopPool } from "../../lib/gecko.ts";
 import { fmtAge, fmtAmountNum, fmtPct, fmtUsd, shortAddr } from "../../lib/format.ts";
 import { useTerminal } from "../../state/terminal.ts";
@@ -14,24 +13,22 @@ const GRID =
 
 /** GMGN-style dense token table: click a row to open it in the terminal. */
 export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; loading: boolean }) {
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   const setMarket = useTerminal((s) => s.setMarket);
   const push = useToasts((s) => s.push);
   const [resolving, setResolving] = useState<string | null>(null);
-  // DexScreener icons fill the gaps in gecko's base_token sideload
+  // DexScreener icons fill the gaps in gecko's base_token sideload;
+  // brand-new launchpad tokens resolve via on-chain getTokenInfo()
   const { data: media } = usePairsMedia(pools?.map((p) => p.address));
+  const { data: chainIcons } = useOnchainIcons(pools?.map((p) => p.baseToken));
 
   const pick = async (p: TopPool) => {
     if (!client || resolving) return;
     setResolving(p.address);
     try {
-      // Pools on a DEX with a MonoLimit book open directly; anything else
-      // (nad.fun & co.) resolves through the token's deepest supported pool.
-      const supported = MARKETS.some((m) => m.dexId === p.dexId);
-      const r =
-        supported || !isAddress(p.baseToken)
-          ? await lookupTopPool(client, p)
-          : await lookupMarket(client, p.baseToken as Address);
+      // lookupTopPool routes rows on unsupported DEXes (nad.fun & co.)
+      // through the token's deepest supported pool automatically.
+      const r = await lookupTopPool(client, p);
       setMarket(r.token, r.pool);
     } catch (err) {
       push("error", (err as Error).message.slice(0, 140));
@@ -77,7 +74,11 @@ export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; lo
             >
               <span className="flex min-w-0 items-center gap-2.5">
                 <TokenIcon
-                  url={media?.get(p.address.toLowerCase()) ?? p.imageUrl}
+                  url={
+                    media?.get(p.address.toLowerCase()) ??
+                    p.imageUrl ??
+                    chainIcons?.get(p.baseToken.toLowerCase())
+                  }
                   symbol={p.baseSymbol}
                   size="size-7"
                 />

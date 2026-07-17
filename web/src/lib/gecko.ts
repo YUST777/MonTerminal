@@ -41,7 +41,9 @@ async function geckoJson(url: string): Promise<any> {
     if (!res || res.status === 429) {
       await sleep(12_000);
       await sleep(reserveSlot());
-      res = await fetch(url);
+      // the retry can be CORS-masked too — surface a clean 429 either way
+      res = await fetch(url).catch(() => null);
+      if (!res) throw new Error("GeckoTerminal 429");
     }
     if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
     return res.json();
@@ -152,6 +154,26 @@ function lsPut(key: string, payload: unknown) {
       /* still full — live without the cache */
     }
   }
+}
+
+/**
+ * localStorage + shared-Supabase double layer around any gecko fetcher —
+ * one visitor pays the rate-limit toll, everyone else paints instantly.
+ */
+async function cached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
+  const local = lsGet(key);
+  if (local && local.ageMs < ttlMs) return local.payload as T;
+  const shared = await supaGet(key);
+  if (shared && shared.ageMs < ttlMs) {
+    lsPut(key, shared.payload);
+    return shared.payload as T;
+  }
+  const fresh = await fetcher();
+  if (Array.isArray(fresh) ? fresh.length > 0 : fresh != null) {
+    lsPut(key, fresh);
+    supaPut(key, fresh);
+  }
+  return fresh;
 }
 
 export interface Trade {
@@ -278,7 +300,8 @@ function parsePoolRow(p: any, included?: IncludedMap): TopPool | null {
   return {
     address,
     dexId: String(p.relationships?.dex?.data?.id ?? ""),
-    baseSymbol: rawBase.trim(),
+    // sideloaded token symbol beats parsing the "X / Y 1%" name string
+    baseSymbol: String(baseAttrs?.symbol ?? "").trim() || rawBase.trim(),
     quoteSymbol: rawQuote.trim().replace(/\s+[\d.]+%$/, ""),
     baseToken: baseId.replace(/^monad_/, ""),
     priceUsd: p.attributes?.base_token_price_usd
@@ -323,11 +346,17 @@ async function fetchPoolPages(path: string, pages: number): Promise<TopPool[]> {
 
 /** Top Monad pools by 24h volume — feeds the market-select table + home page. */
 export async function fetchTopPools(pages = 5): Promise<TopPool[]> {
-  return fetchPoolPages("/networks/monad/pools?sort=h24_volume_usd_desc&", pages);
+  return cached(`top-pools:${pages}`, 60_000, () =>
+    fetchPoolPages("/networks/monad/pools?sort=h24_volume_usd_desc&", pages),
+  );
 }
 
 /** GeckoTerminal's trending Monad pools (24h window) — home "Trending" tab. */
 export async function fetchTrendingPools(): Promise<TopPool[]> {
+  return cached("trending-pools", 60_000, fetchTrendingPoolsLive);
+}
+
+async function fetchTrendingPoolsLive(): Promise<TopPool[]> {
   const json = await geckoJson(
     `${BASE}/networks/monad/trending_pools?include=base_token&duration=24h`,
   );
@@ -339,7 +368,9 @@ export async function fetchTrendingPools(): Promise<TopPool[]> {
 
 /** Freshly created Monad pools — home "New pairs" tab. */
 export async function fetchNewPools(pages = 3): Promise<TopPool[]> {
-  return fetchPoolPages("/networks/monad/new_pools?", pages);
+  return cached(`new-pools:${pages}`, 45_000, () =>
+    fetchPoolPages("/networks/monad/new_pools?", pages),
+  );
 }
 
 /**

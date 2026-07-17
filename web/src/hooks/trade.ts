@@ -7,8 +7,9 @@ import {
   quoteAtTick,
   ADDRESSES,
   LIMIT_ORDER_BOOK_ABI,
+  monad,
 } from "@monolimit/shared";
-import { BOOK_ADDRESS } from "../config/wagmi.ts";
+import { resolveBook } from "../config/wagmi.ts";
 import { useTerminal, type PoolInfo, type TokenMeta } from "../state/terminal.ts";
 import { useToasts } from "../components/Toasts.tsx";
 
@@ -19,6 +20,7 @@ export function useTokenBalance(token: Address | undefined) {
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
+    chainId: monad.id, // token lives on Monad even if the wallet wandered
     query: { enabled: !!token && !!address, refetchInterval: 5_000 },
   });
 }
@@ -30,6 +32,7 @@ export function useAllowance(token: Address | undefined, book: Address | undefin
     abi: erc20Abi,
     functionName: "allowance",
     args: address && book ? [address, book] : undefined,
+    chainId: monad.id,
     query: { enabled: !!token && !!address && !!book, refetchInterval: 5_000 },
   });
 }
@@ -79,18 +82,60 @@ export function buildOrderParams(
   };
 }
 
+/**
+ * Buy-the-dip limit: deposit the pool's quote token, receive `token` once its
+ * price has dropped `dropPct`% — mechanically a take-profit in the
+ * quote→token direction (the quote's price in token rises by 1/multiple).
+ */
+export function buildBuyLimitParams(
+  draft: { amountIn: bigint; dropPct: number; expiry?: number; keeperFeeBps?: number },
+  token: TokenMeta,
+  pool: PoolInfo,
+  currentTick: number,
+) {
+  if (draft.dropPct >= 0) throw new Error("buy limit trigger must be below current price");
+  const tokenIn = pool.quote.address;
+  const tokenOut = token.address;
+  const multiple = 1 / (1 + draft.dropPct / 100); // token −30% ⇒ quote buys 1.43×
+  const { triggerTick } = computeTrigger("tp", currentTick, multiple, tokenIn, tokenOut);
+  const quote = quoteAtTick(triggerTick, draft.amountIn, tokenIn, tokenOut);
+  return {
+    tokenIn,
+    tokenOut,
+    poolFee: pool.fee,
+    amountIn: draft.amountIn,
+    minAmountOut: quote < 1n ? 1n : quote, // minOut IS the trigger
+    triggerTick,
+    maxSlippageBps: 0,
+    expiry: draft.expiry ?? 0,
+    keeperFeeBps: draft.keeperFeeBps ?? 30,
+    kind: 0,
+    unwrapToNative: false, // payout is the token itself
+  };
+}
+
 /** Approve (if needed) then placeOrders — the two-step "ApprovalGate" flow.
  *  Orders go to the selected pool's market book (Uniswap v3 / Capricorn / …). */
 export function usePlaceOrders(token: TokenMeta | null) {
   const { writeContractAsync, isPending } = useWriteContract();
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   const queryClient = useQueryClient();
   const push = useToasts((s) => s.push);
   const pool = useTerminal((s) => s.pool);
-  const book = pool?.market.book ?? BOOK_ADDRESS;
-  const { data: allowance, refetch: refetchAllowance } = useAllowance(token?.address, book);
+  // null until the book contract is deployed — never approve/place against 0x0
+  const book = resolveBook(pool?.market.book);
+  const { data: allowance, refetch: refetchAllowance } = useAllowance(
+    token?.address,
+    book ?? undefined,
+  );
 
   const needsApproval = (total: bigint) => allowance === undefined || allowance < total;
+
+  const requireBook = (): Address => {
+    if (!book)
+      throw new Error("Limit orders aren't live yet — the order book contract isn't deployed");
+    return book;
+  };
 
   const approve = async () => {
     if (!token) return;
@@ -98,7 +143,8 @@ export function usePlaceOrders(token: TokenMeta | null) {
       address: token.address,
       abi: erc20Abi,
       functionName: "approve",
-      args: [book, maxUint256],
+      args: [requireBook(), maxUint256],
+      chainId: monad.id,
     });
     await client!.waitForTransactionReceipt({ hash });
     await refetchAllowance();
@@ -107,10 +153,11 @@ export function usePlaceOrders(token: TokenMeta | null) {
 
   const place = async (params: ReturnType<typeof buildOrderParams>[]) => {
     const hash = await writeContractAsync({
-      address: book,
+      address: requireBook(),
       abi: LIMIT_ORDER_BOOK_ABI,
       functionName: "placeOrders",
       args: [params],
+      chainId: monad.id,
     });
     const receipt = await client!.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") throw new Error("placeOrders reverted");
@@ -118,7 +165,7 @@ export function usePlaceOrders(token: TokenMeta | null) {
     queryClient.invalidateQueries({ queryKey: ["user-orders"] });
   };
 
-  return { needsApproval, approve, place, isPending, allowance };
+  return { needsApproval, approve, place, isPending, allowance, bookReady: book !== null };
 }
 
 const OBSERVE_ABI = parseAbi([
@@ -130,7 +177,7 @@ const OBSERVE_ABI = parseAbi([
  * reverts on pools younger than a minute (the book would throw TwapUnavailable).
  */
 export function useTwapAvailable(pool: PoolInfo | null) {
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   return useQuery({
     queryKey: ["twap-ok", pool?.address],
     enabled: !!client && !!pool,
@@ -153,7 +200,7 @@ export function useTwapAvailable(pool: PoolInfo | null) {
 
 export function useCancelOrders() {
   const { writeContractAsync, isPending } = useWriteContract();
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   const queryClient = useQueryClient();
   const push = useToasts((s) => s.push);
 
@@ -163,6 +210,7 @@ export function useCancelOrders() {
       abi: LIMIT_ORDER_BOOK_ABI,
       functionName: ids.length === 1 ? "cancelOrder" : "cancelOrders",
       args: ids.length === 1 ? [ids[0]!] : [ids],
+      chainId: monad.id,
     });
     await client!.waitForTransactionReceipt({ hash });
     push("success", "Order cancelled");

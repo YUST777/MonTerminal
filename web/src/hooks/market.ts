@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
-import { erc20Abi, isAddress, parseAbi, type Address } from "viem";
-import { ADDRESSES, FEE_TIERS, MARKETS, tickToExecutionPrice, type Market } from "@monolimit/shared";
+import { erc20Abi, hexToString, isAddress, parseAbi, type Address, type Hex } from "viem";
+import { ADDRESSES, FEE_TIERS, MARKETS, monad, tickToExecutionPrice, type Market } from "@monolimit/shared";
 import {
   fetchNewPools,
   fetchOhlcv,
   fetchPoolStats,
-  fetchTokenPools,
   fetchTopPools,
   fetchTrades,
   fetchTrendingPools,
@@ -16,7 +15,13 @@ import {
 } from "../lib/gecko.ts";
 import { buildDepth } from "../lib/depth.ts";
 import { replacePath } from "../lib/router.ts";
-import { fetchPairsMedia, fetchTokenMedia } from "../lib/dexscreener.ts";
+import {
+  fetchPairsMedia,
+  fetchPoolStatsDs,
+  fetchTokenMedia,
+  fetchTokenPairs,
+} from "../lib/dexscreener.ts";
+import { fetchOnchainIcons, fetchOnchainTokenInfo } from "../lib/tokenInfo.ts";
 import { useTerminal, type PoolInfo, type TokenMeta } from "../state/terminal.ts";
 
 type Client = NonNullable<ReturnType<typeof usePublicClient>>;
@@ -28,6 +33,7 @@ const POOL_ABI = parseAbi([
   "function token0() view returns (address)",
   "function token1() view returns (address)",
   "function fee() view returns (uint24)",
+  "function factory() view returns (address)",
   "function tickSpacing() view returns (int24)",
   "function ticks(int24) view returns (uint128 liquidityGross, int128 liquidityNet, uint256 feeGrowthOutside0X128, uint256 feeGrowthOutside1X128, int56 tickCumulativeOutside, uint160 secondsPerLiquidityOutsideX128, uint32 secondsOutside, bool initialized)",
 ]);
@@ -52,15 +58,47 @@ function prettyDex(id: string) {
     .join(" ");
 }
 
-async function fetchErc20Meta(client: Client, address: Address): Promise<TokenMeta> {
-  const [symbol, name, decimals] = await client.multicall({
+/** MKR-style tokens return bytes32 instead of string for symbol/name. */
+const BYTES32_META_ABI = parseAbi([
+  "function symbol() view returns (bytes32)",
+  "function name() view returns (bytes32)",
+]);
+
+const trimBytes32 = (v: Hex) => hexToString(v, { size: 32 }).replace(/\0+$/, "");
+
+/**
+ * Token metadata that survives non-standard contracts: decimals is required
+ * (all the math needs it), but symbol/name degrade gracefully — string ABI →
+ * bytes32 ABI → caller-provided fallback (e.g. gecko's symbol) → address stub.
+ */
+async function fetchErc20Meta(
+  client: Client,
+  address: Address,
+  fallback?: { symbol?: string; name?: string },
+): Promise<TokenMeta> {
+  const decimals = await client.readContract({ address, abi: erc20Abi, functionName: "decimals" });
+  const [sym, nam] = await client.multicall({
     contracts: [
       { address, abi: erc20Abi, functionName: "symbol" },
       { address, abi: erc20Abi, functionName: "name" },
-      { address, abi: erc20Abi, functionName: "decimals" },
     ],
-    allowFailure: false,
+    allowFailure: true,
   });
+  let symbol = sym.status === "success" ? sym.result : undefined;
+  let name = nam.status === "success" ? nam.result : undefined;
+  if (symbol === undefined || name === undefined) {
+    const [sym32, nam32] = await client.multicall({
+      contracts: [
+        { address, abi: BYTES32_META_ABI, functionName: "symbol" },
+        { address, abi: BYTES32_META_ABI, functionName: "name" },
+      ],
+      allowFailure: true,
+    });
+    symbol ??= sym32.status === "success" ? trimBytes32(sym32.result) : undefined;
+    name ??= nam32.status === "success" ? trimBytes32(nam32.result) : undefined;
+  }
+  symbol ||= fallback?.symbol || `${address.slice(0, 6)}…${address.slice(-4)}`;
+  name ||= fallback?.name || symbol;
   return { address, symbol, name, decimals };
 }
 
@@ -119,22 +157,42 @@ async function factoryScan(
     }
   });
   if (found.length === 0) return null;
+  // one broken/fork pool must not brick the whole scan — failed reads count as empty
   const liqs = await client.multicall({
     contracts: found.map((f) => ({ address: f.pool, abi: POOL_ABI, functionName: "liquidity" as const })),
-    allowFailure: false,
+    allowFailure: true,
   });
   let best = 0;
-  liqs.forEach((l, i) => {
-    if ((l as bigint) > (liqs[best] as bigint)) best = i;
+  let bestLiq = -1n;
+  liqs.forEach((r, i) => {
+    const liq = r.status === "success" ? (r.result as bigint) : 0n;
+    if (liq > bestLiq) {
+      bestLiq = liq;
+      best = i;
+    }
   });
   return found[best]!;
 }
 
 /**
- * Paste-an-address token lookup. MonoLimit runs a book per supported DEX
- * (Uniswap v3, Capricorn, PancakeSwap v3) — so we ask GeckoTerminal for the
- * token's deepest pool on any supported market first, then fall back to
- * scanning each market's factory for TOKEN/WMON and TOKEN/USDC pairs.
+ * Which MonoLimit market (if any) a pool belongs to — decided by the pool's
+ * ON-CHAIN factory(), never by an indexer's dex label. GeckoTerminal tags
+ * launchpad frontends (pons.family & co.) with their own dexId even though
+ * their pools live on the exact same Uniswap v3 factory we trade on.
+ */
+async function marketForPool(client: Client, pool: Address): Promise<Market | null> {
+  const factory = await client
+    .readContract({ address: pool, abi: POOL_ABI, functionName: "factory" })
+    .catch(() => null);
+  if (!factory) return null;
+  return MARKETS.find((m) => m.factory.toLowerCase() === factory.toLowerCase()) ?? null;
+}
+
+/**
+ * Paste-an-address token lookup. Pools come from DexScreener (CORS-friendly,
+ * 300 req/min — no gecko rate limits on the click path); each candidate is
+ * matched to a MonoLimit market by its on-chain factory. Last resort: scan
+ * every market's factory for TOKEN/WMON and TOKEN/USDC pairs directly.
  */
 export async function lookupMarket(client: Client, address: Address): Promise<MarketLookup> {
   // Not a contract at all → clearest possible message before any ABI call.
@@ -152,50 +210,56 @@ export async function lookupMarket(client: Client, address: Address): Promise<Ma
     throw new Error("This contract isn't a standard ERC-20 token");
   }
 
-  // Rate-limited gecko ≠ unsupported token — remember which one happened so
-  // the error below doesn't lie about it.
-  let geckoDown = false;
-  const gecko = await fetchTokenPools(address).catch(() => {
-    geckoDown = true;
-    return [];
-  });
-  // Gecko sorts deepest-first, so the first supported dex wins.
-  const supported = gecko.find((p) => MARKETS.some((m) => m.dexId === p.dexId));
-  let poolAddress: Address | null;
-  let market: Market | undefined;
-  if (supported) {
-    poolAddress = supported.address as Address;
-    market = MARKETS.find((m) => m.dexId === supported.dexId)!;
-  } else {
-    const scanned = await factoryScan(client, address);
-    poolAddress = scanned?.pool ?? null;
-    market = scanned?.market;
-  }
-  if (!poolAddress || !market) {
-    const elsewhere = gecko[0];
-    throw new Error(
-      geckoDown
-        ? `Price API is rate-limited right now — couldn't look up ${token.symbol}'s pools. Try again in a few seconds.`
-        : elsewhere
-          ? `${token.symbol} only trades on ${prettyDex(elsewhere.dexId)} ($${Math.round(elsewhere.reserveUsd).toLocaleString()} liq) — MonoLimit supports ${MARKETS.map((m) => m.label).join(", ")}, and ${token.symbol} has no pool on any of them`
-          : `${token.symbol} has no pool on a supported DEX (${MARKETS.map((m) => m.label).join(", ")})`,
-    );
+  const pairs = await fetchTokenPairs(address).catch(() => []);
+  const candidates = pairs.slice(0, 8).filter((p) => isAddress(p.address));
+  if (candidates.length > 0) {
+    const factories = await client.multicall({
+      contracts: candidates.map((p) => ({
+        address: p.address as Address,
+        abi: POOL_ABI,
+        functionName: "factory" as const,
+      })),
+      allowFailure: true,
+    });
+    // deepest-first: first pool sitting on a factory we run a book for wins
+    for (let i = 0; i < candidates.length; i++) {
+      const f = factories[i]!;
+      if (f.status !== "success") continue;
+      const market = MARKETS.find((m) => m.factory.toLowerCase() === f.result.toLowerCase());
+      if (market) {
+        return resolveMarketPool(client, token, candidates[i]!.address as Address, market);
+      }
+    }
   }
 
-  return resolveMarketPool(client, token, poolAddress, market);
+  const scanned = await factoryScan(client, address);
+  if (scanned) return resolveMarketPool(client, token, scanned.pool, scanned.market);
+
+  const elsewhere = candidates[0];
+  throw new Error(
+    elsewhere
+      ? `${token.symbol}'s pools (deepest: $${Math.round(elsewhere.liquidityUsd).toLocaleString()} on ${prettyDex(elsewhere.dexId)}) aren't on a factory MonoLimit trades on (${MARKETS.map((m) => m.label).join(", ")})`
+      : `${token.symbol} has no pool on a supported DEX (${MARKETS.map((m) => m.label).join(", ")})`,
+  );
 }
 
-/** Resolve a row from the top-pools table into a tradable market (exact pool). */
+/**
+ * Resolve a row from the pools tables into a tradable market. The row's exact
+ * pool opens whenever its on-chain factory is one we trade on — regardless of
+ * what dexId gecko labelled it with. Only pools on foreign factories fall
+ * back to the token's deepest supported pool.
+ */
 export async function lookupTopPool(client: Client, p: TopPool): Promise<MarketLookup> {
-  const market = MARKETS.find((m) => m.dexId === p.dexId);
-  if (!market) throw new Error(`${p.dexId} is not a supported DEX`);
   if (!isAddress(p.baseToken)) throw new Error("Bad token address from GeckoTerminal");
-  const token = await fetchErc20Meta(client, p.baseToken as Address);
+  let market = MARKETS.find((m) => m.dexId === p.dexId) ?? null;
+  if (!market && isAddress(p.address)) market = await marketForPool(client, p.address as Address);
+  if (!market) return lookupMarket(client, p.baseToken as Address);
+  const token = await fetchErc20Meta(client, p.baseToken as Address, { symbol: p.baseSymbol });
   return resolveMarketPool(client, token, p.address as Address, market);
 }
 
 export function useMarketLookup(rawQuery: string) {
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   const query = rawQuery.trim();
   return useQuery({
     queryKey: ["market-lookup", query.toLowerCase()],
@@ -260,14 +324,42 @@ export function usePairsMedia(pools: string[] | undefined) {
   });
 }
 
-/** DexScreener icon for the selected token. */
+/**
+ * On-chain logos via pons `getTokenInfo()` — one multicall for a whole table.
+ * Covers brand-new launchpad tokens hours before any indexer has their art.
+ */
+export function useOnchainIcons(tokens: string[] | undefined) {
+  const client = usePublicClient({ chainId: monad.id });
+  const key = [...new Set((tokens ?? []).map((t) => t.toLowerCase()))].sort();
+  return useQuery({
+    queryKey: ["onchain-icons", key],
+    enabled: !!client && key.length > 0,
+    staleTime: 24 * 3_600_000,
+    placeholderData: keepPreviousData,
+    queryFn: () => fetchOnchainIcons(client!, key.filter((t) => isAddress(t)) as Address[]),
+  });
+}
+
+/** Icon + description + social links for the selected token: DexScreener → on-chain. */
 export function useTokenMedia(token: Address | undefined) {
+  const client = usePublicClient({ chainId: monad.id });
   return useQuery({
     queryKey: ["token-media", token?.toLowerCase()],
-    enabled: !!token,
+    enabled: !!client && !!token,
     staleTime: 24 * 3_600_000,
     retry: 1,
-    queryFn: () => fetchTokenMedia(token!),
+    queryFn: async () => {
+      const [ds, onchain] = await Promise.all([
+        fetchTokenMedia(token!).catch(() => ({ icon: null })),
+        fetchOnchainTokenInfo(client!, token!),
+      ]);
+      return {
+        icon: ds.icon ?? onchain?.imageUrl ?? null,
+        description: onchain?.description ?? null,
+        links: onchain?.links ?? [],
+        creator: onchain?.creator ?? null,
+      };
+    },
   });
 }
 
@@ -279,7 +371,7 @@ export function useTokenMedia(token: Address | undefined) {
  * home page.
  */
 export function useUrlMarketSync(): boolean {
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   const { token, setMarket } = useTerminal();
   const applied = useRef(false);
   // A deep-linked path means a market is about to load — start in loading state.
@@ -313,7 +405,7 @@ export function useUrlMarketSync(): boolean {
 
 /** Live pool tick + TOKEN price in the quote token from slot0 — same source the contract uses. */
 export function useLivePrice(pool: PoolInfo | null, token: TokenMeta | null) {
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   return useQuery({
     queryKey: ["live-price", pool?.address],
     enabled: !!client && !!pool && !!token,
@@ -336,22 +428,27 @@ export function useLivePrice(pool: PoolInfo | null, token: TokenMeta | null) {
   });
 }
 
-/** GeckoTerminal candles, refetched every 15s. */
+/** GeckoTerminal candles — the one thing only gecko has. 30s keeps the
+ * whole terminal at ~2 gecko calls/min, far under its 30/min cap. */
 export function useCandles(pool: PoolInfo | null, tf: Timeframe) {
   return useQuery({
     queryKey: ["candles", pool?.address, tf],
     enabled: !!pool,
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
     queryFn: () => fetchOhlcv(pool!.address, tf),
   });
 }
 
+/** Header stats from DexScreener (300 req/min, CORS-ok); gecko only if the
+ * pair isn't indexed there yet. */
 export function usePoolStats(pool: PoolInfo | null) {
   return useQuery({
     queryKey: ["pool-stats", pool?.address],
     enabled: !!pool,
     refetchInterval: 15_000,
-    queryFn: () => fetchPoolStats(pool!.address),
+    placeholderData: keepPreviousData,
+    queryFn: () => fetchPoolStatsDs(pool!.address).catch(() => fetchPoolStats(pool!.address)),
   });
 }
 
@@ -362,7 +459,7 @@ const DEPTH_LEVELS = 12;
  * liquidityNet at the surrounding initialized ticks, folded into a ladder.
  */
 export function useDepth(pool: PoolInfo | null, token: TokenMeta | null) {
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   return useQuery({
     queryKey: ["depth", pool?.address],
     enabled: !!client && !!pool && !!token,
@@ -413,12 +510,13 @@ export function useDepth(pool: PoolInfo | null, token: TokenMeta | null) {
   });
 }
 
-/** Recent pool trades (GeckoTerminal), refetched every 10s. */
+/** Recent pool trades (GeckoTerminal), refetched every 15s. */
 export function useTrades(pool: PoolInfo | null) {
   return useQuery({
     queryKey: ["trades", pool?.address],
     enabled: !!pool,
-    refetchInterval: 10_000,
+    refetchInterval: 15_000,
+    placeholderData: keepPreviousData,
     queryFn: () => fetchTrades(pool!.address),
   });
 }

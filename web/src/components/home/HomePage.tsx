@@ -23,31 +23,21 @@ export function HomePage() {
 
   return (
     <div className="flex h-full flex-col gap-2 px-3 py-2.5">
-      {/* GMGN-style header row: tabs left, tagline right */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`rounded-md px-2.5 py-1.5 text-[13px] font-semibold transition-colors ${
-                tab === t.id ? "bg-raised text-fg ring-1 ring-line" : "text-muted hover:text-fg"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <span className="hidden text-[11px] text-muted sm:block">
-          Non-custodial stop-losses &amp; take-profits on Monad — click any token to trade
-        </span>
+      <div className="flex items-center gap-1">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`rounded-md px-2.5 py-1.5 text-[13px] font-semibold transition-colors ${
+              tab === t.id ? "bg-raised text-fg ring-1 ring-line" : "text-muted hover:text-fg"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <PoolTable pools={active.data} loading={active.isLoading} />
-
-      <div className="text-center text-[10px] text-muted">
-        Live from GeckoTerminal · Uniswap v3, Capricorn &amp; PancakeSwap v3
-      </div>
     </div>
   );
 }
