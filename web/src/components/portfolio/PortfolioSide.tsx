@@ -3,7 +3,8 @@ import { fmtAge, fmtAmountNum, fmtPct, fmtUsd, shortAddr } from "../../lib/forma
 import { TokenIcon } from "../TokenIcon.tsx";
 import { Sparkline } from "./AssetsTable.tsx";
 
-const PALETTE = ["#00c805", "#6ea8fe", "#ffd58a", "#ff9c9c", "#77c7af", "#d3e97a", "#8b9c92"];
+// Brand-led allocation palette — biggest slice wears the MonTerminal periwinkle.
+const PALETTE = ["#a091f0", "#6ea8fe", "#ffd58a", "#ff9c9c", "#77c7af", "#d3e97a", "#8b8e9c"];
 const EXPLORER = "https://monadscan.com";
 
 /** Right rail: allocation donut, top gainers among holdings, on-chain activity. */

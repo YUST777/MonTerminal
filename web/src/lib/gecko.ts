@@ -82,9 +82,39 @@ export async function fetchOhlcv(
   const key = `ohlcv:${pool.toLowerCase()}:${tf}:${limit}:${currency}`;
   const ttl = OHLCV_TTL_MS[tf];
 
+  const refresh = async (): Promise<Candle[]> => {
+    const json = await geckoJson(
+      `${BASE}/networks/monad/pools/${pool}/ohlcv/${TF_PATH[tf]}&limit=${limit}&currency=${currency}`,
+    );
+    const list: number[][] = json?.data?.attributes?.ohlcv_list ?? [];
+    const candles = list
+      .map(([ts, o, h, l, c, v]) => ({
+        timestamp: ts!,
+        open: o!,
+        high: h!,
+        low: l!,
+        close: c!,
+        volume: v!,
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+    if (candles.length > 0) {
+      lsPut(key, candles);
+      supaPut(key, candles);
+    }
+    return candles;
+  };
+
   // 1. this browser's copy — instant range flips and reloads
   const local = lsGet(key);
   if (local && local.ageMs < ttl) return local.payload as Candle[];
+  // stale-while-revalidate: a series past its TTL still paints instantly
+  // (portfolio needs ~17 of these at once — queueing them all through the
+  // throttled gecko lane took tens of seconds cold); the background refresh
+  // rewrites both caches and the poll/refetch picks the fresh data right up.
+  if (local && local.ageMs < STALE_OK_MS) {
+    void refresh().catch(() => {});
+    return local.payload as Candle[];
+  }
   // 2. the shared Supabase copy — someone (or a past session) already paid
   //    the gecko rate-limit toll for this exact series
   const shared = await supaGet(key);
@@ -92,26 +122,12 @@ export async function fetchOhlcv(
     lsPut(key, shared.payload);
     return shared.payload as Candle[];
   }
-
-  const json = await geckoJson(
-    `${BASE}/networks/monad/pools/${pool}/ohlcv/${TF_PATH[tf]}&limit=${limit}&currency=${currency}`,
-  );
-  const list: number[][] = json?.data?.attributes?.ohlcv_list ?? [];
-  const candles = list
-    .map(([ts, o, h, l, c, v]) => ({
-      timestamp: ts!,
-      open: o!,
-      high: h!,
-      low: l!,
-      close: c!,
-      volume: v!,
-    }))
-    .sort((a, b) => a.timestamp - b.timestamp);
-  if (candles.length > 0) {
-    lsPut(key, candles);
-    supaPut(key, candles);
+  if (shared && shared.ageMs < STALE_OK_MS) {
+    // don't lsPut — that would restamp stale data as fresh
+    void refresh().catch(() => {});
+    return shared.payload as Candle[];
   }
-  return candles;
+  return refresh();
 }
 
 /**
