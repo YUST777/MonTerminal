@@ -25,7 +25,9 @@ export const nativeFromChain = (chain: {
   name: chain.nativeCurrency.name,
   address: NATIVE_TOKEN,
   decimals: chain.nativeCurrency.decimals,
-  logo: "",
+  // ETH natives share the canonical mark; other gas tokens fall back to the
+  // letter avatar until the live Relay list supplies real artwork.
+  logo: chain.nativeCurrency.symbol === "ETH" ? LOGO.ETH : "",
 });
 
 const TW = "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains";

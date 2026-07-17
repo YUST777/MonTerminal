@@ -439,9 +439,18 @@ export async function fetchRelayTokens(
   term?: string,
 ): Promise<BridgeToken[]> {
   const base = { chainIds: [chainId], limit: 30 };
-  // useExternalSearch lets Relay fall back to 3rd-party token search for
-  // anything it hasn't indexed yet — pasted addresses of fresh tokens resolve.
-  if (term) return queryCurrencies({ ...base, term, verified: true, useExternalSearch: true });
+  if (term) {
+    const t = term.trim();
+    // A pasted contract address hits the dedicated `address` filter — the
+    // default list can't carry every coin, but any CA Relay can route resolves.
+    // Free-text search skips the verified filter on purpose (most memecoins
+    // aren't flagged verified) and lets Relay fall back to 3rd-party search
+    // for tokens it hasn't indexed yet.
+    const body = /^0x[0-9a-fA-F]{40}$/.test(t)
+      ? { ...base, address: t.toLowerCase(), useExternalSearch: true }
+      : { ...base, term: t, useExternalSearch: true };
+    return queryCurrencies(body);
+  }
   let list = await queryCurrencies({ ...base, defaultList: true });
   if (list.length === 0) list = await queryCurrencies({ ...base, verified: true });
   return withNativeFirst(chainId, list);
