@@ -2,7 +2,7 @@ import type { HistoryPoint, HistoryRange } from "../../hooks/portfolio.ts";
 import { fmtUsd } from "../../lib/format.ts";
 
 /**
- * Pure-SVG portfolio value chart: brand-purple line over a soft gradient
+ * Pure-SVG portfolio value chart: brand-green line over a soft gradient
  * fill, optional dashed MON benchmark + $/date axes (Performance Overview).
  * Data is real holdings-value history — see useHoldingsHistory.
  */

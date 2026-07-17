@@ -2,10 +2,18 @@ import { useEffect } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient } from "wagmi";
 import { erc20Abi, parseAbiItem, type Address } from "viem";
-import { ADDRESSES } from "@monolimit/shared";
+import { ADDRESSES, monad } from "@monolimit/shared";
 import { BRIDGE_TOKENS, NATIVE_TOKEN } from "../config/tokens.ts";
 import { fetchRelayTokens } from "../lib/relay.ts";
-import { fetchOhlcv, fetchSimplePrices, fetchTopPools, type Timeframe } from "../lib/gecko.ts";
+import { fetchWalletTokens } from "../lib/blockscout.ts";
+import { fetchTokenPrices, type DsTokenPrice } from "../lib/dexscreener.ts";
+import {
+  fetchOhlcv,
+  fetchSimplePrices,
+  fetchTopPools,
+  type Timeframe,
+  type TopPool,
+} from "../lib/gecko.ts";
 import { logClient } from "./orders.ts";
 
 /** One held token, priced. `address` is null for native MON. */
@@ -41,15 +49,15 @@ interface Candidate {
 }
 
 /**
- * Real wallet holdings: the token universe is every Monad token we already
- * know about (top-pools base tokens + bridge registry + Relay's verified
- * list), balance-checked in one multicall. Prices join from the same
- * top-pools fetch the home page uses; leftovers hit gecko's batch
- * simple-price endpoint. No indexer, no mock data.
+ * Real wallet holdings, fast: Blockscout's indexer returns every held token
+ * in ONE call (symbol/name/decimals/icon included); DexScreener batch-prices
+ * them (CORS-friendly, 300 req/min). GeckoTerminal only prices stragglers.
+ * Fallback when the explorer is down: balance-check a token universe built
+ * from the bridge registry + Relay list + cached top pools.
  */
 export function usePortfolio() {
   const { address } = useAccount();
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: monad.id });
   const qc = useQueryClient();
 
   return useQuery({
@@ -58,89 +66,53 @@ export function usePortfolio() {
     staleTime: 30_000,
     refetchInterval: 60_000,
     queryFn: async (): Promise<Portfolio> => {
-      // 1. token universe (top pools shared with the home page cache)
-      const [pools, relay] = await Promise.all([
-        qc
-          .fetchQuery({
-            queryKey: ["top-pools"],
-            queryFn: () => fetchTopPools(),
-            staleTime: 60_000,
-          })
-          .catch(() => []),
-        fetchRelayTokens(143).catch(() => []),
-      ]);
-
-      const candidates = new Map<string, Candidate>();
-      const add = (c: Candidate) => {
-        const key = c.address.toLowerCase();
-        if (!candidates.has(key)) candidates.set(key, c);
-      };
-      for (const t of BRIDGE_TOKENS[143] ?? []) {
-        if (t.address !== NATIVE_TOKEN) {
-          add({ ...t, address: t.address, logo: t.logo || null });
-        }
-      }
-      for (const t of relay) {
-        if (t.address !== NATIVE_TOKEN) {
-          add({ ...t, address: t.address, logo: t.logo || null });
-        }
-      }
-      for (const p of pools) {
-        if (p.baseDecimals == null || !p.baseToken.startsWith("0x")) continue;
-        add({
-          address: p.baseToken as Address,
-          symbol: p.baseSymbol,
-          name: p.baseName ?? p.baseSymbol,
-          decimals: p.baseDecimals,
-          logo: p.imageUrl,
-        });
-      }
-      const universe = [...candidates.values()];
-
-      // 2. balances — one multicall + native MON
-      const [native, balances] = await Promise.all([
+      // 1. holdings — one universe scan + native MON, in parallel
+      const [native, indexed] = await Promise.all([
         client!.getBalance({ address: address! }),
-        client!.multicall({
-          contracts: universe.map((c) => ({
-            address: c.address,
-            abi: erc20Abi,
-            functionName: "balanceOf" as const,
-            args: [address!] as const,
-          })),
-          allowFailure: true,
-        }),
+        fetchWalletTokens(address!).catch(() => null),
       ]);
-
       const held: { c: Candidate | null; balance: bigint }[] = [];
       if (native > 0n) held.push({ c: null, balance: native });
-      balances.forEach((r, i) => {
-        if (r.status === "success" && r.result > 0n) {
-          held.push({ c: universe[i]!, balance: r.result });
-        }
-      });
+      if (indexed) {
+        for (const t of indexed) held.push({ c: t, balance: t.balance });
+      } else {
+        // explorer down — legacy universe scan (bridge + relay + cached pools)
+        held.push(...(await universeScan(qc, client!, address!)));
+      }
 
-      // 3. prices — top-pools rows first (also carry 24h change + a pool for
-      // the sparkline), gecko simple-price batch for the rest
-      const byToken = new Map<string, (typeof pools)[number]>();
+      // 2. prices — DexScreener batch (dust wallets can hold 100s of airdrop
+      // tokens; cap the priced set, the rest count as $0 dust)
+      const wmonKey = ADDRESSES.WMON.toLowerCase();
+      const priceable = held.slice(0, 150);
+      const ds = await fetchTokenPrices([
+        wmonKey,
+        ...priceable.flatMap((h) => (h.c ? [h.c.address] : [])),
+      ]).catch(() => new Map<string, DsTokenPrice>());
+
+      // free extra joins from the home page's already-cached top pools
+      const pools = qc.getQueryData<TopPool[]>(["top-pools"]) ?? [];
+      const byToken = new Map<string, TopPool>();
       for (const p of pools) {
         const key = p.baseToken.toLowerCase();
         if (!byToken.has(key)) byToken.set(key, p); // deepest first
       }
-      const wmonKey = ADDRESSES.WMON.toLowerCase();
-      const unpriced = held
+
+      // 3. gecko simple-price only for what both sources missed
+      const unpriced = priceable
         .map((h) => (h.c ? h.c.address.toLowerCase() : wmonKey))
-        .filter((a) => !byToken.has(a) || byToken.get(a)!.priceUsd == null);
+        .filter((a) => ds.get(a)?.priceUsd == null && byToken.get(a)?.priceUsd == null);
       const fallback =
         unpriced.length > 0
           ? await fetchSimplePrices(unpriced).catch(() => new Map<string, number>())
           : new Map<string, number>();
 
-      const monLogo = BRIDGE_TOKENS[143]?.[0]?.logo ?? null;
+      const monLogo = BRIDGE_TOKENS[monad.id]?.[0]?.logo ?? null;
       const assets = held
         .map(({ c, balance }): PortfolioAsset => {
           const key = c ? c.address.toLowerCase() : wmonKey; // MON prices as WMON
           const row = byToken.get(key);
-          const priceUsd = row?.priceUsd ?? fallback.get(key) ?? null;
+          const dsp = ds.get(key);
+          const priceUsd = dsp?.priceUsd ?? row?.priceUsd ?? fallback.get(key) ?? null;
           const decimals = c?.decimals ?? 18;
           const amount = Number(balance) / 10 ** decimals;
           return {
@@ -148,12 +120,12 @@ export function usePortfolio() {
             symbol: c?.symbol ?? "MON",
             name: c?.name ?? "Monad",
             decimals,
-            logo: c ? c.logo : monLogo,
+            logo: c ? (c.logo ?? dsp?.icon ?? null) : monLogo,
             amount,
             priceUsd,
-            change24hPct: row?.change24hPct ?? null,
+            change24hPct: dsp?.change24hPct ?? row?.change24hPct ?? null,
             valueUsd: priceUsd != null ? amount * priceUsd : 0,
-            pool: row?.address ?? null,
+            pool: dsp?.pool ?? row?.address ?? null,
           };
         })
         .sort((a, b) => b.valueUsd - a.valueUsd);
@@ -172,6 +144,68 @@ export function usePortfolio() {
       };
     },
   });
+}
+
+/** Legacy discovery path — only runs when Blockscout is unreachable. */
+async function universeScan(
+  qc: ReturnType<typeof useQueryClient>,
+  client: NonNullable<ReturnType<typeof usePublicClient>>,
+  address: Address,
+): Promise<{ c: Candidate; balance: bigint }[]> {
+  const [pools, relay] = await Promise.all([
+    qc
+      .fetchQuery({
+        queryKey: ["top-pools"],
+        queryFn: () => fetchTopPools(),
+        staleTime: 60_000,
+      })
+      .catch(() => []),
+    fetchRelayTokens(monad.id).catch(() => []),
+  ]);
+
+  const candidates = new Map<string, Candidate>();
+  const add = (c: Candidate) => {
+    const key = c.address.toLowerCase();
+    if (!candidates.has(key)) candidates.set(key, c);
+  };
+  for (const t of BRIDGE_TOKENS[monad.id] ?? []) {
+    if (t.address !== NATIVE_TOKEN) {
+      add({ ...t, address: t.address, logo: t.logo || null });
+    }
+  }
+  for (const t of relay) {
+    if (t.address !== NATIVE_TOKEN) {
+      add({ ...t, address: t.address, logo: t.logo || null });
+    }
+  }
+  for (const p of pools) {
+    if (p.baseDecimals == null || !p.baseToken.startsWith("0x")) continue;
+    add({
+      address: p.baseToken as Address,
+      symbol: p.baseSymbol,
+      name: p.baseName ?? p.baseSymbol,
+      decimals: p.baseDecimals,
+      logo: p.imageUrl,
+    });
+  }
+  const universe = [...candidates.values()];
+
+  const balances = await client.multicall({
+    contracts: universe.map((c) => ({
+      address: c.address,
+      abi: erc20Abi,
+      functionName: "balanceOf" as const,
+      args: [address] as const,
+    })),
+    allowFailure: true,
+  });
+  const held: { c: Candidate; balance: bigint }[] = [];
+  balances.forEach((r, i) => {
+    if (r.status === "success" && r.result > 0n) {
+      held.push({ c: universe[i]!, balance: r.result });
+    }
+  });
+  return held;
 }
 
 /* ------------------------------ value history ----------------------------- */
@@ -196,7 +230,7 @@ const HISTORY_ASSETS = 8;
  * Value of the CURRENT holdings over time: each tracked asset's real USD
  * OHLCV closes × its live balance, summed on a shared timeline (assets
  * without an indexed pool contribute their flat current value). Benchmark is
- * MON's price over the same window, rebased to the starting total. This is
+ * WMON's price over the same window, rebased to the starting total. This is
  * real market data — not a fabricated portfolio history.
  */
 export function useHoldingsHistory(portfolio: Portfolio | undefined, range: HistoryRange) {
@@ -242,15 +276,15 @@ async function buildHoldingsHistory(
 ): Promise<HistoryPoint[]> {
   const cfg = RANGE_CFG[range];
   const flatUsd = portfolio.totalUsd - tracked.reduce((s, a) => s + a.valueUsd, 0);
-  const pools = await qc
-    .fetchQuery({
-      queryKey: ["top-pools"],
-      queryFn: () => fetchTopPools(),
-      staleTime: 60_000,
-    })
-    .catch(() => []);
+  // MON benchmark pool: cached top-pools if the home page fetched them,
+  // otherwise one cheap DexScreener call — never a 5-page gecko fetch.
   const wmon = ADDRESSES.WMON.toLowerCase();
-  const benchPool = pools.find((p) => p.baseToken.toLowerCase() === wmon)?.address ?? null;
+  const cached = qc.getQueryData<TopPool[]>(["top-pools"]) ?? [];
+  const benchPool =
+    cached.find((p) => p.baseToken.toLowerCase() === wmon)?.address ??
+    (await fetchTokenPrices([wmon]).catch(() => new Map<string, DsTokenPrice>())).get(wmon)
+      ?.pool ??
+    null;
 
   const [series, bench] = await Promise.all([
     Promise.all(
@@ -312,7 +346,7 @@ export interface ActivityEntry {
 const TRANSFER = parseAbiItem(
   "event Transfer(address indexed from, address indexed to, uint256 value)",
 );
-/** rpc1 serves 500k-block getLogs ranges — ~1 day of Monad blocks. */
+/** ~1 day of Monad blocks per getLogs sweep. */
 const ACTIVITY_RANGE = 500_000n;
 const ACTIVITY_TXS = 8;
 
@@ -320,7 +354,7 @@ const ACTIVITY_TXS = 8;
  * Recent wallet activity straight from chain: ERC-20 Transfer logs in/out of
  * the wallet over the last ~day, grouped per tx so swaps show both legs
  * (strict decoding skips ERC-721s, which share the Transfer signature).
- * Runs on the rpc1 log client — rpc.monad.xyz caps getLogs at 100 blocks.
+ * Runs on the shared log client against rpc.mainnet.chain.monad.com.
  */
 export function useActivity() {
   const { address } = useAccount();
