@@ -1,6 +1,8 @@
-// AUTO-GENERATED from https://api.relay.link/chains (2026-07-17).
-// Every additional EVM chain Relay can bridge from, beyond the majors
-// defined in wagmi.ts. Monad itself is excluded — it's the home chain.
+// AUTO-GENERATED from https://api.relay.link/chains (refreshed 2026-07-17).
+// Every EVM chain Relay can bridge from, beyond the majors pinned in
+// wagmi.ts. Monad itself is excluded — it's the home chain. Non-EVM
+// chains (Solana, Tron, Bitcoin, TON…) and deposit-disabled ones are out.
+// RPC endpoints are the ones Relay itself publishes.
 import { defineChain, type Chain } from "viem";
 
 const evm = (
@@ -58,6 +60,7 @@ export const EXTRA_ORIGINS = [
   evm(42018, "Mythos", "ETH", 18, "https://mythos-mainnet.g.alchemy.com/public/", "https://mythos-mainnet.explorer.alchemy.com"),
   evm(9745, "Plasma", "XPL", 18, "https://rpc.plasma.to", "https://plasmascan.to"),
   evm(98866, "Plume", "PLUME", 18, "https://rpc.plume.org", "https://explorer.plume.org"),
+  evm(4663, "Robinhood Chain", "ETH", 18, "https://rpc.mainnet.chain.robinhood.com", "https://8crv4vmq6tiu1yqr.blockscout.com"),
   evm(2020, "Ronin", "RON", 18, "https://api.roninchain.com/rpc", "https://explorer.roninchain.com"),
   evm(534352, "Scroll", "ETH", 18, "https://rpc.scroll.io/", "https://scrollscan.com"),
   evm(1329, "Sei", "SEI", 18, "https://evm-rpc.sei-apis.com", "https://seitrace.com"),
@@ -68,6 +71,7 @@ export const EXTRA_ORIGINS = [
   evm(988, "Stable", "gUSDT", 18, "https://rpc.stable.xyz", "https://stablescan.xyz"),
   evm(55244, "Superposition", "ETH", 18, "https://rpc.superposition.so", "https://explorer.superposition.so"),
   evm(5330, "Superseed", "ETH", 18, "https://mainnet.superseed.xyz", "https://explorer.superseed.xyz"),
+  evm(4217, "Tempo", "USD", 18, "https://rpc.mainnet.tempo.xyz", "https://explore.tempo.xyz"),
   evm(130, "Unichain", "ETH", 18, "https://mainnet.unichain.org", "https://uniscan.xyz"),
   evm(480, "World Chain", "ETH", 18, "https://worldchain-mainnet.gateway.tenderly.co", "https://worldscan.org"),
   evm(48900, "Zircuit", "ETH", 18, "https://mainnet.zircuit.com", "https://explorer.zircuit.com"),
