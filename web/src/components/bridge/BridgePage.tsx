@@ -108,6 +108,20 @@ export function BridgePage() {
     from.chain.id === to.chain.id &&
     from.token.address.toLowerCase() === to.token.address.toLowerCase();
 
+  // One quote request shape for the debounced fetch, the pre-execute refresh
+  // and the missing-step-data re-poll — always the same parameters.
+  const requestQuote = () =>
+    getRelayQuote({
+      user: address!,
+      originChainId: from.chain.id,
+      destinationChainId: to.chain.id,
+      originCurrency: from.token.address, // zero address = native
+      destinationCurrency: to.token.address,
+      amount: amount.toString(),
+      recipient: address!,
+      refundTo: address!, // explicit — failures land back in the user's wallet
+    });
+
   // Re-quote whenever the pair/amount changes (debounced).
   useEffect(() => {
     setQuote(null);
@@ -116,15 +130,7 @@ export function BridgePage() {
     const t = setTimeout(async () => {
       try {
         setStatus("Getting quote…");
-        const q = await getRelayQuote({
-          user: address,
-          originChainId: from.chain.id,
-          destinationChainId: to.chain.id,
-          originCurrency: from.token.address, // zero address = native
-          destinationCurrency: to.token.address,
-          amount: amount.toString(),
-          recipient: address,
-        });
+        const q = await requestQuote();
         setQuote(q);
         setQuotedAt(Date.now());
         setStatus(null);
@@ -165,15 +171,7 @@ export function BridgePage() {
       let q = quote;
       if (Date.now() - quotedAt > 30_000) {
         setStatus("Refreshing quote…");
-        q = await getRelayQuote({
-          user: address,
-          originChainId: from.chain.id,
-          destinationChainId: to.chain.id,
-          originCurrency: from.token.address,
-          destinationCurrency: to.token.address,
-          amount: amount.toString(),
-          recipient: address,
-        });
+        q = await requestQuote();
         setQuote(q);
         setQuotedAt(Date.now());
       }
@@ -195,7 +193,7 @@ export function BridgePage() {
       const walletClient = await getWalletClient(wagmiConfig, {
         chainId: from.chain.id,
       });
-      const destTx = await executeRelaySteps(q, walletClient, setStatus);
+      const destTx = await executeRelaySteps(q, walletClient, setStatus, requestQuote);
       push(
         "success",
         (isSwap
@@ -235,6 +233,20 @@ export function BridgePage() {
     : null;
   const providerFeeUsd = impact?.relay?.usd != null ? Number(impact.relay.usd) : null;
   const eta = quote?.details?.timeEstimate;
+  // Fills below this refund instead of landing short (docs: refunds).
+  const minOutRaw = quote?.details?.currencyOut?.minimumAmount;
+  const minOut = (() => {
+    if (!minOutRaw) return null;
+    try {
+      return Number(formatUnits(BigInt(minOutRaw), to.token.decimals));
+    } catch {
+      return null;
+    }
+  })();
+  const impactPct = quote?.details?.totalImpact?.percent
+    ? Number(quote.details.totalImpact.percent)
+    : null;
+  const highImpact = impactPct != null && impactPct <= -3;
 
   const cta = !address
     ? "Connect wallet"
@@ -375,6 +387,20 @@ export function BridgePage() {
           {/* fee breakdown — where the in/out difference actually goes */}
           <UsdRow label="Swap impact" usd={swapImpactUsd} />
           <UsdRow label="Provider fee" usd={providerFeeUsd} />
+          {minOut != null && minOut > 0 && (
+            <div className="flex justify-between">
+              <span>Min. received</span>
+              <span className="tabular-nums text-fg">
+                {minOut.toFixed(4)} {to.token.symbol}
+              </span>
+            </div>
+          )}
+          {highImpact && (
+            <div className="flex justify-between text-warn">
+              <span>Price impact</span>
+              <span className="tabular-nums">{impactPct!.toFixed(1)}% — consider a smaller amount</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span>Est. time</span>
             <span className="text-fg">

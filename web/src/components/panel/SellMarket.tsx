@@ -31,14 +31,17 @@ export function SellMarket() {
     if (!amount || !address || !walletClient) return;
     setStatus("quoting…");
     try {
-      const quote = await getRelayQuote({
-        user: address,
-        originChainId: monad.id,
-        destinationChainId: monad.id,
-        originCurrency: token.address,
-        destinationCurrency: NATIVE,
-        amount: amount.toString(),
-      });
+      const requestQuote = () =>
+        getRelayQuote({
+          user: address,
+          originChainId: monad.id,
+          destinationChainId: monad.id,
+          originCurrency: token.address,
+          destinationCurrency: NATIVE,
+          amount: amount.toString(),
+          refundTo: address,
+        });
+      const quote = await requestQuote();
       setQuoteOut(quote.details?.currencyOut?.amountFormatted ?? null);
       // the swap executes on Monad — pull the wallet back if it wandered
       if (chainId !== monad.id) {
@@ -46,7 +49,7 @@ export function SellMarket() {
         await switchChainAsync({ chainId: monad.id });
       }
       const client = await getWalletClient(wagmiConfig, { chainId: monad.id });
-      await executeRelaySteps(quote, client, setStatus);
+      await executeRelaySteps(quote, client, setStatus, requestQuote);
       push("success", `Sold ${token.symbol} for MON`);
       queryClient.invalidateQueries();
     } catch (err) {
