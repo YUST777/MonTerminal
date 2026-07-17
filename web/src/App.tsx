@@ -36,7 +36,7 @@ export default function App() {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-bg text-fg">
         <div className="text-xl font-bold">
-          Mono<span className="monad-gradient-text">Limit</span>
+          Mon<span className="monad-gradient-text">Terminal</span>
         </div>
         <div className="spinner size-6" />
         <div className="text-xs text-muted">Loading market…</div>

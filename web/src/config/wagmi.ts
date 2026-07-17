@@ -47,7 +47,7 @@ const connectors = connectorsForWallets(
       ],
     },
   ],
-  { appName: "MonoLimit", projectId: wcProjectId ?? "monolimit-dev" },
+  { appName: "MonTerminal", projectId: wcProjectId ?? "monterminal-dev" },
 );
 
 // Bare http() rides each chain's own default RPC — for the generated chains

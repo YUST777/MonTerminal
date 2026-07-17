@@ -1,6 +1,6 @@
 {
-  "name": "MonoLimit",
-  "short_name": "MonoLimit",
+  "name": "MonTerminal",
+  "short_name": "MonTerminal",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

@@ -24,7 +24,7 @@ export function TopNav() {
       {/* logo — always goes home */}
       <button onClick={() => navigate("/")} className="flex shrink-0 items-baseline">
         <span className="text-[18px] font-bold tracking-tight">
-          Mono<span className="monad-gradient-text">Limit</span>
+          Mon<span className="monad-gradient-text">Terminal</span>
         </span>
       </button>
 

@@ -175,7 +175,7 @@ async function factoryScan(
 }
 
 /**
- * Which MonoLimit market (if any) a pool belongs to — decided by the pool's
+ * Which MonTerminal market (if any) a pool belongs to — decided by the pool's
  * ON-CHAIN factory(), never by an indexer's dex label. GeckoTerminal tags
  * launchpad frontends (pons.family & co.) with their own dexId even though
  * their pools live on the exact same Uniswap v3 factory we trade on.
@@ -191,7 +191,7 @@ async function marketForPool(client: Client, pool: Address): Promise<Market | nu
 /**
  * Paste-an-address token lookup. Pools come from DexScreener (CORS-friendly,
  * 300 req/min — no gecko rate limits on the click path); each candidate is
- * matched to a MonoLimit market by its on-chain factory. Last resort: scan
+ * matched to a MonTerminal market by its on-chain factory. Last resort: scan
  * every market's factory for TOKEN/WMON and TOKEN/USDC pairs directly.
  */
 export async function lookupMarket(client: Client, address: Address): Promise<MarketLookup> {
@@ -238,7 +238,7 @@ export async function lookupMarket(client: Client, address: Address): Promise<Ma
   const elsewhere = candidates[0];
   throw new Error(
     elsewhere
-      ? `${token.symbol}'s pools (deepest: $${Math.round(elsewhere.liquidityUsd).toLocaleString()} on ${prettyDex(elsewhere.dexId)}) aren't on a factory MonoLimit trades on (${MARKETS.map((m) => m.label).join(", ")})`
+      ? `${token.symbol}'s pools (deepest: $${Math.round(elsewhere.liquidityUsd).toLocaleString()} on ${prettyDex(elsewhere.dexId)}) aren't on a factory MonTerminal trades on (${MARKETS.map((m) => m.label).join(", ")})`
       : `${token.symbol} has no pool on a supported DEX (${MARKETS.map((m) => m.label).join(", ")})`,
   );
 }
@@ -272,7 +272,7 @@ export function useMarketLookup(rawQuery: string) {
 
 /**
  * Top Monad pools by 24h volume — every DEX gecko indexes, not just the ones
- * with a MonoLimit book: rows on other DEXes resolve through the token's
+ * with a MonTerminal book: rows on other DEXes resolve through the token's
  * deepest supported pool on click (see PoolTable.pick).
  */
 export function useTopPools(enabled: boolean) {

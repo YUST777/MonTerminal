@@ -31,7 +31,7 @@ export function NetworkGuard() {
   if (!wrong || onBridge) return null;
   return (
     <div className="flex items-center justify-between gap-3 border-b border-warn/40 bg-warn/10 px-4 py-2 text-sm text-warn">
-      <span>Wrong network — MonoLimit runs on Monad mainnet (143).</span>
+      <span>Wrong network — MonTerminal runs on Monad mainnet (143).</span>
       <button
         onClick={() => switchChain({ chainId: monad.id })}
         disabled={isPending}

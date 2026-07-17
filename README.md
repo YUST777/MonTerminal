@@ -1,8 +1,10 @@
-# MonoLimit
+![MonTerminal — Trade smarter. Win faster.](web/public/banner.jpg)
 
-**Non-custodial stop-losses, take-profits and sell ladders on Monad mainnet.**
+# MonTerminal
 
-You buy a meme coin and want to sleep. MonoLimit gives you GMGN-style automation, fully on-chain: *"sell everything if I'm down 50%"*, *"at 2× sell half, let the rest ride"* — with no deposits, no custody, and permissionless execution.
+**[monterminal.fun](https://www.monterminal.fun/)** — non-custodial stop-losses, take-profits and sell ladders on Monad mainnet.
+
+You buy a meme coin and want to sleep. MonTerminal gives you GMGN-style automation, fully on-chain: *"sell everything if I'm down 50%"*, *"at 2× sell half, let the rest ride"* — with no deposits, no custody, and permissionless execution. Around it: a full trading terminal (live charts, order book depth, instant buys), an any-to-any swap + bridge over 59 chains, and a live portfolio.
 
 Built for the buildanything.so **Spark** Monad hackathon. 100% original code.
 
@@ -101,7 +103,8 @@ node ../scripts/sync-abi.mjs   # refresh shared ABI after any contract change
 
 ## Data sources (all real, no mocks)
 
-- **Candles** — GeckoTerminal public API (`networks/monad` OHLCV), 15s refresh
+- **Candles** — GeckoTerminal public API (`networks/monad` OHLCV), 15s refresh, cached localStorage → shared Supabase
 - **Live price** — on-chain `slot0` every 3s (the same source the contract's TWAP derives from)
 - **Orders** — contract events + `getOrders` multicall; no external indexer
-- **Buy / bridge-in** — [Relay](https://relay.link) (instant MON→token market buys; cross-chain bridge to Monad)
+- **Pairs / prices / icons** — DexScreener (CORS-friendly, generous limits), GeckoTerminal behind it
+- **Swap / bridge / instant buys** — [Relay](https://relay.link) (same-chain swaps, cross-chain bridging from 59 chains, quote/v2 + status lifecycle)
