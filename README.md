@@ -1,4 +1,4 @@
-![MonTerminal — Trade smarter. Win faster.](web/public/md/banner.jpg)
+![MonTerminal — Trade smarter. Win faster.](web/public/md/banner.webp)
 
 # MonTerminal
 
@@ -10,25 +10,25 @@ Built for the buildanything.so **Spark** Monad hackathon. 100% original code.
 
 ## Features
 
-![Buy / Sell limit orders](web/public/md/limit.png)
+![Buy / Sell limit orders](web/public/md/limit.webp)
 
 ### Buy / Sell limit orders — set it once, sleep peacefully
 
 The heart of MonTerminal: on-chain take-profits, stop-losses and buy-the-dip limits with **no custody** — tokens stay in your wallet until the trigger fires. Pick a price (or tap a ±% chip), slide the amount, place. Sell orders auto-detect stop-loss vs take-profit from where your price sits vs market; the **Auto tab** places GMGN-style ladders ("at 2× sell half, 25% at 5×, ride the rest") atomically in one tx. Execution is permissionless — the keeper bot, MEV searchers, or anyone else fills triggered orders and earns the maker-set fee, so orders execute 24/7 even while you sleep.
 
-![New pairs catcher](web/public/md/new_pairs.png)
+![New pairs catcher](web/public/md/new_pairs.webp)
 
 ### New pairs catcher — be early, always
 
 The GMGN-style discovery home streams every Monad DEX: 🔥 Trending, 🌱 New pairs and 📊 Top volume, dense with age, price moves (5m/1h/24h), volume, liquidity, market cap and transaction counts. Fresh pools surface the moment indexers see them, icons resolve straight from the launchpad's on-chain metadata before any aggregator has them, and tab switches paint in ~100ms from the warmed cache. One click on any row opens the full terminal — chart, order book depth, trades and the trade panel.
 
-![Bridge and swap](web/public/md/bridge.png)
+![Bridge and swap](web/public/md/bridge.webp)
 
 ### Swap · Bridge — move assets across chains, fast
 
 One widget for both: same chain on both sides is a swap, different chains bridge — with a destination-side swap folded in, so "MON → a memecoin on another chain" is one transaction. **59 EVM chains**, any-to-any tokens, quoted and filled through Relay's quote/v2 with the full status lifecycle (deposit → fill → destination tx hash), stale-quote auto-refresh, gas-aware Max, and honest fee rows (Provider fee, Swap impact, Min. received). Paste any contract address to find tokens the curated lists don't carry.
 
-![Portfolio](web/public/md/portfolo.png)
+![Portfolio](web/public/md/portfolo.webp)
 
 ### Portfolio — your assets, all in one place
 
