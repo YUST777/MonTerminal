@@ -12,6 +12,7 @@ import {
 } from "../hooks/market.ts";
 import type { TopPool } from "../lib/gecko.ts";
 import { fmtPct, fmtUsd } from "../lib/format.ts";
+import { navigate } from "../lib/router.ts";
 import { useTerminal, type PoolInfo, type TokenMeta } from "../state/terminal.ts";
 import { TokenIcon } from "./TokenIcon.tsx";
 import { useToasts } from "./Toasts.tsx";
@@ -125,7 +126,11 @@ export function MarketBar() {
             return (
               <button
                 key={f.token.address}
-                onClick={() => setMarket(m.token, m.pool)}
+                onClick={() => {
+                  setMarket(m.token, m.pool);
+                  // the bar shows on every page — a chip always lands on the terminal
+                  navigate(`/token/monad/${m.token.address.toLowerCase()}`);
+                }}
                 className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] ${
                   current ? "bg-overlay text-fg" : "text-muted hover:bg-raised hover:text-fg"
                 }`}
@@ -191,6 +196,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
 
   const select = (r: MarketLookup) => {
     setMarket(r.token, r.pool);
+    navigate(`/token/monad/${r.token.address.toLowerCase()}`);
     push(
       "info",
       `Loaded ${r.token.symbol}/${r.pool.quote.symbol} — ${r.pool.market.label} ${r.pool.fee / 10_000}% pool`,

@@ -56,7 +56,8 @@ export default function App() {
     <div className="flex h-dvh flex-col bg-bg text-fg">
       <NetworkGuard />
       <TopNav />
-      {!fullPage && <MarketBar />}
+      {/* market selector + favorites live on every page — one-click hop to any coin */}
+      <MarketBar />
       {!fullPage && <TokenHeader />}
 
       {/* main — Suspense fallback stays blank: each page paints its own skeletons */}
