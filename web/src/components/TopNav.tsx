@@ -39,6 +39,8 @@ export function TopNav() {
         <NavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
           Portfolio
         </NavItem>
+        <NavItem soon>Launchpad</NavItem>
+        <NavItem soon>Rewards</NavItem>
       </nav>
 
       {/* right cluster */}

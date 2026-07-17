@@ -159,21 +159,38 @@ function lsPut(key: string, payload: unknown) {
 /**
  * localStorage + shared-Supabase double layer around any gecko fetcher —
  * one visitor pays the rate-limit toll, everyone else paints instantly.
+ * Stale-while-revalidate: a copy past its TTL but younger than STALE_OK
+ * paints immediately while a background refresh rewrites both caches, so
+ * a cold page load never blocks on the throttled gecko queue.
  */
+const STALE_OK_MS = 10 * 60_000;
+
 async function cached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
+  const refresh = async (): Promise<T> => {
+    const fresh = await fetcher();
+    if (Array.isArray(fresh) ? fresh.length > 0 : fresh != null) {
+      lsPut(key, fresh);
+      supaPut(key, fresh);
+    }
+    return fresh;
+  };
   const local = lsGet(key);
   if (local && local.ageMs < ttlMs) return local.payload as T;
+  if (local && local.ageMs < STALE_OK_MS) {
+    void refresh().catch(() => {});
+    return local.payload as T;
+  }
   const shared = await supaGet(key);
   if (shared && shared.ageMs < ttlMs) {
     lsPut(key, shared.payload);
     return shared.payload as T;
   }
-  const fresh = await fetcher();
-  if (Array.isArray(fresh) ? fresh.length > 0 : fresh != null) {
-    lsPut(key, fresh);
-    supaPut(key, fresh);
+  if (shared && shared.ageMs < STALE_OK_MS) {
+    // don't lsPut — that would restamp stale data as fresh
+    void refresh().catch(() => {});
+    return shared.payload as T;
   }
-  return fresh;
+  return refresh();
 }
 
 export interface Trade {
