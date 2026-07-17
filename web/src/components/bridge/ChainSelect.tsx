@@ -176,22 +176,31 @@ export function TokenSelectModal({
             </Dialog.Close>
           </div>
 
-          {/* chain strip — pick the origin network; scrolls sideways on phones */}
+          {/* chain strip — pick the origin network; scrolls sideways on phones.
+              The active chain expands into a labeled pill so it reads instantly. */}
           <div className="mb-4 flex items-center gap-2 overflow-x-auto sm:mb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {BRIDGE_CHAINS.map((c) => (
-              <button
-                key={c.id}
-                title={c.name}
-                onClick={() => setActiveChain(c)}
-                className={`flex shrink-0 items-center justify-center rounded-xl px-3.5 py-2.5 transition-all duration-150 active:scale-95 ${
-                  activeChain.id === c.id
-                    ? "bg-brand/15 ring-1 ring-brand"
-                    : "bg-overlay/40 ring-1 ring-transparent hover:bg-overlay hover:ring-line"
-                }`}
-              >
-                <ChainIcon chain={c} size="size-6" />
-              </button>
-            ))}
+            {BRIDGE_CHAINS.map((c) => {
+              const active = activeChain.id === c.id;
+              return (
+                <button
+                  key={c.id}
+                  title={c.name}
+                  onClick={() => setActiveChain(c)}
+                  className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 transition-all duration-150 active:scale-95 ${
+                    active
+                      ? "bg-brand/25 ring-1 ring-brand"
+                      : "opacity-60 bg-overlay/40 ring-1 ring-transparent hover:opacity-100 hover:bg-overlay hover:ring-line"
+                  }`}
+                >
+                  <ChainIcon chain={c} size="size-6" />
+                  {active && (
+                    <span className="whitespace-nowrap text-[13px] font-semibold">
+                      {c.name === "BNB Smart Chain" ? "BNB Chain" : c.name}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* token grid */}

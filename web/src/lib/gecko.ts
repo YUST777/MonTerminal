@@ -3,6 +3,8 @@
  * Docs: https://api.geckoterminal.com/docs
  */
 
+import { supaGet, supaPut } from "./supacache.ts";
+
 const BASE = "https://api.geckoterminal.com/api/v2";
 
 /*
@@ -75,11 +77,25 @@ export async function fetchOhlcv(
   limit = 300,
   currency: "token" | "usd" = "token",
 ): Promise<Candle[]> {
+  const key = `ohlcv:${pool.toLowerCase()}:${tf}:${limit}:${currency}`;
+  const ttl = OHLCV_TTL_MS[tf];
+
+  // 1. this browser's copy — instant range flips and reloads
+  const local = lsGet(key);
+  if (local && local.ageMs < ttl) return local.payload as Candle[];
+  // 2. the shared Supabase copy — someone (or a past session) already paid
+  //    the gecko rate-limit toll for this exact series
+  const shared = await supaGet(key);
+  if (shared && shared.ageMs < ttl) {
+    lsPut(key, shared.payload);
+    return shared.payload as Candle[];
+  }
+
   const json = await geckoJson(
     `${BASE}/networks/monad/pools/${pool}/ohlcv/${TF_PATH[tf]}&limit=${limit}&currency=${currency}`,
   );
   const list: number[][] = json?.data?.attributes?.ohlcv_list ?? [];
-  return list
+  const candles = list
     .map(([ts, o, h, l, c, v]) => ({
       timestamp: ts!,
       open: o!,
@@ -89,6 +105,53 @@ export async function fetchOhlcv(
       volume: v!,
     }))
     .sort((a, b) => a.timestamp - b.timestamp);
+  if (candles.length > 0) {
+    lsPut(key, candles);
+    supaPut(key, candles);
+  }
+  return candles;
+}
+
+/**
+ * How stale a cached OHLCV series may be before we go back to gecko — a
+ * fraction of the candle period, so the terminal chart stays live while
+ * portfolio history (15m/1h/4h) becomes effectively instant.
+ */
+const OHLCV_TTL_MS: Record<Timeframe, number> = {
+  "1m": 30_000,
+  "5m": 90_000,
+  "15m": 4 * 60_000,
+  "1h": 10 * 60_000,
+  "4h": 30 * 60_000,
+  "1d": 2 * 3_600_000,
+};
+
+/* localStorage side of the cache — quota failures just mean no cache */
+function lsGet(key: string): { payload: unknown; ageMs: number } | null {
+  try {
+    const raw = localStorage.getItem(`gk:${key}`);
+    if (!raw) return null;
+    const { t, p } = JSON.parse(raw) as { t: number; p: unknown };
+    return { payload: p, ageMs: Date.now() - t };
+  } catch {
+    return null;
+  }
+}
+
+function lsPut(key: string, payload: unknown) {
+  try {
+    localStorage.setItem(`gk:${key}`, JSON.stringify({ t: Date.now(), p: payload }));
+  } catch {
+    // quota exceeded — drop the whole gecko cache and retry once
+    try {
+      for (const k of Object.keys(localStorage)) {
+        if (k.startsWith("gk:")) localStorage.removeItem(k);
+      }
+      localStorage.setItem(`gk:${key}`, JSON.stringify({ t: Date.now(), p: payload }));
+    } catch {
+      /* still full — live without the cache */
+    }
+  }
 }
 
 export interface Trade {

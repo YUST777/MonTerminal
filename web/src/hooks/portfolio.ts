@@ -1,4 +1,5 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient } from "wagmi";
 import { erc20Abi, parseAbiItem, type Address } from "viem";
 import { ADDRESSES } from "@monolimit/shared";
@@ -204,64 +205,90 @@ export function useHoldingsHistory(portfolio: Portfolio | undefined, range: Hist
   const tracked = (portfolio?.assets ?? [])
     .filter((a) => a.pool && a.valueUsd > 0)
     .slice(0, HISTORY_ASSETS);
+  const trackedKey = tracked.map((a) => a.pool).join(",");
 
-  return useQuery({
-    queryKey: ["holdings-history", address, range, tracked.map((a) => a.pool).join(",")],
+  const query = useQuery({
+    queryKey: ["holdings-history", address, range, trackedKey],
     enabled: !!portfolio && tracked.length > 0,
     staleTime: 300_000,
     retry: 0,
-    queryFn: async (): Promise<HistoryPoint[]> => {
-      const cfg = RANGE_CFG[range];
-      const flatUsd = portfolio!.totalUsd - tracked.reduce((s, a) => s + a.valueUsd, 0);
-      const pools = await qc
-        .fetchQuery({
-          queryKey: ["top-pools"],
-          queryFn: () => fetchTopPools(),
-          staleTime: 60_000,
-        })
-        .catch(() => []);
-      const wmon = ADDRESSES.WMON.toLowerCase();
-      const benchPool = pools.find((p) => p.baseToken.toLowerCase() === wmon)?.address ?? null;
-
-      const [series, bench] = await Promise.all([
-        Promise.all(
-          tracked.map((a) => fetchOhlcv(a.pool!, cfg.tf, cfg.limit, "usd").catch(() => [])),
-        ),
-        benchPool
-          ? fetchOhlcv(benchPool, cfg.tf, cfg.limit, "usd").catch(() => [])
-          : Promise.resolve([]),
-      ]);
-
-      const tsSet = new Set<number>();
-      for (const s of series) for (const c of s) tsSet.add(c.timestamp);
-      const timeline = [...tsSet].sort((x, y) => x - y);
-      if (timeline.length < 2) return [];
-
-      const maps = series.map((s) => new Map(s.map((c) => [c.timestamp, c.close])));
-      const lastClose = series.map((s) => s[0]?.close ?? 0);
-      const benchMap = new Map(bench.map((c) => [c.timestamp, c.close]));
-      let benchLast = bench[0]?.close ?? 0;
-      const bench0 = benchLast;
-
-      const raw = timeline.map((ts) => {
-        let value = flatUsd;
-        tracked.forEach((a, i) => {
-          const close = maps[i]!.get(ts);
-          if (close != null && Number.isFinite(close) && close > 0) lastClose[i] = close;
-          value += a.amount * lastClose[i]!;
-        });
-        const b = benchMap.get(ts);
-        if (b != null && Number.isFinite(b) && b > 0) benchLast = b;
-        return { ts, value, benchClose: benchLast };
-      });
-      const start = raw[0]!.value;
-      return raw.map((r) => ({
-        ts: r.ts,
-        value: r.value,
-        bench: bench0 > 0 && start > 0 ? start * (r.benchClose / bench0) : null,
-      }));
-    },
+    placeholderData: keepPreviousData, // last range's line stays while the next loads
+    queryFn: () => buildHoldingsHistory(qc, portfolio!, tracked, range),
   });
+
+  // Warm the other ranges once the visible one lands — chip flips are then
+  // instant (and usually served straight from the OHLCV cache anyway).
+  useEffect(() => {
+    if (!query.data || !portfolio) return;
+    for (const r of (Object.keys(RANGE_CFG) as HistoryRange[])) {
+      if (r === range) continue;
+      qc.prefetchQuery({
+        queryKey: ["holdings-history", address, r, trackedKey],
+        staleTime: 300_000,
+        queryFn: () => buildHoldingsHistory(qc, portfolio, tracked, r),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data, range, trackedKey]);
+
+  return query;
+}
+
+async function buildHoldingsHistory(
+  qc: ReturnType<typeof useQueryClient>,
+  portfolio: Portfolio,
+  tracked: PortfolioAsset[],
+  range: HistoryRange,
+): Promise<HistoryPoint[]> {
+  const cfg = RANGE_CFG[range];
+  const flatUsd = portfolio.totalUsd - tracked.reduce((s, a) => s + a.valueUsd, 0);
+  const pools = await qc
+    .fetchQuery({
+      queryKey: ["top-pools"],
+      queryFn: () => fetchTopPools(),
+      staleTime: 60_000,
+    })
+    .catch(() => []);
+  const wmon = ADDRESSES.WMON.toLowerCase();
+  const benchPool = pools.find((p) => p.baseToken.toLowerCase() === wmon)?.address ?? null;
+
+  const [series, bench] = await Promise.all([
+    Promise.all(
+      tracked.map((a) => fetchOhlcv(a.pool!, cfg.tf, cfg.limit, "usd").catch(() => [])),
+    ),
+    benchPool
+      ? fetchOhlcv(benchPool, cfg.tf, cfg.limit, "usd").catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
+  const tsSet = new Set<number>();
+  for (const s of series) for (const c of s) tsSet.add(c.timestamp);
+  const timeline = [...tsSet].sort((x, y) => x - y);
+  if (timeline.length < 2) return [];
+
+  const maps = series.map((s) => new Map(s.map((c) => [c.timestamp, c.close])));
+  const lastClose = series.map((s) => s[0]?.close ?? 0);
+  const benchMap = new Map(bench.map((c) => [c.timestamp, c.close]));
+  let benchLast = bench[0]?.close ?? 0;
+  const bench0 = benchLast;
+
+  const raw = timeline.map((ts) => {
+    let value = flatUsd;
+    tracked.forEach((a, i) => {
+      const close = maps[i]!.get(ts);
+      if (close != null && Number.isFinite(close) && close > 0) lastClose[i] = close;
+      value += a.amount * lastClose[i]!;
+    });
+    const b = benchMap.get(ts);
+    if (b != null && Number.isFinite(b) && b > 0) benchLast = b;
+    return { ts, value, benchClose: benchLast };
+  });
+  const start = raw[0]!.value;
+  return raw.map((r) => ({
+    ts: r.ts,
+    value: r.value,
+    bench: bench0 > 0 && start > 0 ? start * (r.benchClose / bench0) : null,
+  }));
 }
 
 /* -------------------------------- activity -------------------------------- */
