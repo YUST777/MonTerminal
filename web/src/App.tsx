@@ -142,7 +142,7 @@ function MobileTerminal() {
         </div>
       </div>
       <div className={`min-h-0 flex-1 overscroll-contain ${panel === "Trade" ? "overflow-hidden" : "overflow-y-auto"}`}>
-        {panel === "Trade" && <OrderSidebar compact />}
+        {panel === "Trade" && <OrderSidebar />}
         {panel === "Book" && <div className="h-full min-h-[420px]"><OrderBook /></div>}
         {panel === "Orders" && <div className="h-full min-h-[360px]"><OrdersDock /></div>}
       </div>
