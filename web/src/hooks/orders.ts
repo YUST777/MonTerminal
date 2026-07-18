@@ -124,9 +124,10 @@ export function useUserOrders() {
         cache.executed.push(...(executed as unknown as ExecutedLog[]));
         cache.nextBlock = end + 1n;
         logCaches.set(key, cache);
-      } catch {
-        // RPC hiccup — keep what we have; the next refetch resumes from
-        // cache.nextBlock instead of hammering retries.
+      } catch (error) {
+        // Never report a first-load RPC failure as a valid empty history.
+        // Once a cache exists, keep its data and resume from this page later.
+        if (cache.nextBlock === market.deployBlock && cache.placed.length === 0) throw error;
         break;
       }
     }

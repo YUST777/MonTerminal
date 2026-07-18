@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { ADDRESSES, distanceToTriggerPct, tickToExecutionPrice } from "@monolimit/shared";
+import { useAccount } from "wagmi";
 import { useLivePrice } from "../hooks/market.ts";
 import { KIND, STATUS, orderKey, useUserOrders, type UserOrder } from "../hooks/orders.ts";
 import { useCancelOrders } from "../hooks/trade.ts";
@@ -30,15 +31,64 @@ function currentMarketSide(
 }
 
 export function OrdersDock() {
-  const { data: orders, isLoading } = useUserOrders();
+  const { isConnected } = useAccount();
+  const { data: orders, isLoading, error } = useUserOrders();
   const open = useMemo(() => orders?.filter((o) => o.status === STATUS.Open) ?? [], [orders]);
   const closed = useMemo(() => orders?.filter((o) => o.status !== STATUS.Open) ?? [], [orders]);
+
+  if (!isConnected) {
+    return (
+      <OrdersState
+        title="Orders are wallet-specific"
+        detail="Connect your wallet to load active orders and execution history."
+      />
+    );
+  }
+  if (isLoading) return <OrdersState title="Loading your orders…" detail="Reading order events from Monad." />;
+  if (error) {
+    return (
+      <OrdersState
+        title="Orders could not be loaded"
+        detail="The Monad event RPC did not respond. The app will retry automatically."
+        tone="down"
+      />
+    );
+  }
+  if ((orders?.length ?? 0) === 0) {
+    return (
+      <OrdersState
+        title="No orders yet"
+        detail="Orders placed from the Limit or AI tabs will appear here."
+      />
+    );
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="grid min-h-0 flex-1 grid-rows-2 divide-y divide-line md:grid-rows-1 md:grid-cols-2 md:divide-x md:divide-y-0">
         <OpenOrdersTable orders={open} loading={isLoading} />
         <OrderHistoryTable orders={closed} />
+      </div>
+    </div>
+  );
+}
+
+function OrdersState({
+  title,
+  detail,
+  tone = "muted",
+}: {
+  title: string;
+  detail: string;
+  tone?: "muted" | "down";
+}) {
+  return (
+    <div className="flex h-full items-center justify-center px-4 text-center">
+      <div>
+        <div className={`text-[11px] font-semibold ${tone === "down" ? "text-down" : "text-fg"}`}>
+          {title}
+        </div>
+        <div className="mt-1 text-[10px] text-muted">{detail}</div>
       </div>
     </div>
   );

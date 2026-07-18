@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLivePrice, usePoolStats, useTokenMedia } from "../hooks/market.ts";
 import { fmtPct, fmtPrice, fmtUsd, shortAddr } from "../lib/format.ts";
 import { useTerminal } from "../state/terminal.ts";
@@ -24,6 +25,15 @@ export function TokenHeader() {
   const { data: live } = useLivePrice(pool, token);
   const { data: stats } = usePoolStats(pool);
   const { data: media } = useTokenMedia(token?.address);
+
+  useEffect(() => {
+    if (!token) return;
+    const pair = pool ? `${token.symbol}-${pool.quote.symbol}` : token.symbol;
+    document.title = stats?.priceUsd != null ? `${fmtUsd(stats.priceUsd)} · ${pair}` : `${pair} · MonTerminal`;
+    return () => {
+      document.title = "MonTerminal — Monad Trading Terminal";
+    };
+  }, [token, pool, stats?.priceUsd]);
 
   if (!token) return null;
   if (!pool) {
