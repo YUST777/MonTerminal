@@ -70,7 +70,7 @@ export function SellLimit() {
       )}
       <ApprovalGate
         needsApproval={needsApproval(amountIn)}
-        onApprove={approve}
+        onApprove={() => approve(amountIn)}
         onPlace={async () => {
           if (!live || !valid) return;
           await place([

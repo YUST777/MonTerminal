@@ -5,6 +5,7 @@ import {
   BriefcaseBusiness,
   ChartLine,
   Compass,
+  ShieldCheck,
 } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ export function TopNav() {
   const token = useTerminal((s) => s.token);
   const onBridge = path === "/bridge" || path === "/swap";
   const onPortfolio = path === "/portfolio";
+  const onProof = path === "/proof";
   const onPair = path.startsWith("/token/");
   // "Spot" returns to the selected market — or, after a reload, the last one
   // this browser traded (deep-linking re-resolves the pool fresh) — else home.
@@ -43,7 +45,7 @@ export function TopNav() {
       </button>
 
       <nav className="hidden min-w-0 items-center gap-1 overflow-x-auto text-[14px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex">
-        <HeaderNavItem active={!onBridge && !onPair && !onPortfolio} onClick={() => navigate("/")}>
+        <HeaderNavItem active={!onBridge && !onPair && !onPortfolio && !onProof} onClick={() => navigate("/")}>
           Discover
         </HeaderNavItem>
         <HeaderNavItem active={onPair} onClick={() => navigate(pairPath)}>
@@ -54,6 +56,9 @@ export function TopNav() {
         </HeaderNavItem>
         <HeaderNavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
           Portfolio
+        </HeaderNavItem>
+        <HeaderNavItem active={onProof} onClick={() => navigate("/proof")}>
+          Live Proof
         </HeaderNavItem>
       </nav>
 
@@ -235,22 +240,11 @@ function PriceTickers() {
     refetchInterval: 60_000,
     staleTime: 45_000,
     queryFn: async () => {
-      const response = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,monad&vs_currencies=usd&include_24hr_change=true",
-      );
-      if (!response.ok) throw new Error(`CoinGecko ${response.status}`);
-      const json = (await response.json()) as Record<
-        string,
-        { usd?: number; usd_24h_change?: number }
-      >;
-      const read = (id: string): FooterPrice | null => {
-        const usd = Number(json[id]?.usd);
-        const change = Number(json[id]?.usd_24h_change);
-        return Number.isFinite(usd)
-          ? { usd, change: Number.isFinite(change) ? change : 0 }
-          : null;
-      };
-      return { monad: read("monad"), ethereum: read("ethereum") };
+      const [monad, ethereum] = await Promise.all([
+        fetchDexPrice("monad", "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A"),
+        fetchDexPrice("ethereum", "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"),
+      ]);
+      return { monad, ethereum };
     },
   });
 
@@ -260,6 +254,23 @@ function PriceTickers() {
       <PriceTicker symbol="ETH" price={data?.ethereum ?? null} />
     </div>
   );
+}
+
+async function fetchDexPrice(chain: string, token: string): Promise<FooterPrice | null> {
+  const response = await fetch(`https://api.dexscreener.com/tokens/v1/${chain}/${token}`);
+  if (!response.ok) return null;
+  const pairs = (await response.json()) as Array<{
+    priceUsd?: string;
+    priceChange?: { h24?: number };
+    liquidity?: { usd?: number };
+  }>;
+  const pair = pairs
+    .filter((candidate) => Number.isFinite(Number(candidate.priceUsd)))
+    .sort((left, right) => Number(right.liquidity?.usd ?? 0) - Number(left.liquidity?.usd ?? 0))[0];
+  if (!pair) return null;
+  const usd = Number(pair.priceUsd);
+  const change = Number(pair.priceChange?.h24);
+  return { usd, change: Number.isFinite(change) ? change : 0 };
 }
 
 function PriceTicker({ symbol, price }: { symbol: string; price: FooterPrice | null }) {
@@ -362,6 +373,16 @@ function SettingsMenu() {
           <div className="mt-1.5 border-t border-line pt-1.5 text-muted">
             Non-custodial — tokens stay in your wallet until a trigger fires.
           </div>
+          <button
+            onClick={() => {
+              setOpen(false);
+              navigate("/proof");
+            }}
+            className="mt-1.5 flex w-full items-center justify-between rounded bg-brand/10 px-1.5 py-1.5 font-semibold text-brand hover:bg-brand/15"
+          >
+            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="size-3.5" /> Live onchain proof</span>
+            <span>→</span>
+          </button>
         </div>
       )}
     </div>

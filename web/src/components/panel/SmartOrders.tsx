@@ -85,6 +85,20 @@ export function SmartOrders() {
   const [planning, setPlanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [action, setAction] = useState<"idle" | "approve-sell" | "approve-buy" | "place">("idle");
+  const [plannerConfigured, setPlannerConfigured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/capabilities", { signal: controller.signal })
+      .then(async (response) => {
+        const value = await response.json();
+        setPlannerConfigured(response.ok && value?.orderPlannerConfigured === true);
+      })
+      .catch((reason) => {
+        if ((reason as Error).name !== "AbortError") setPlannerConfigured(false);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     setPlan(null);
@@ -254,8 +268,12 @@ export function SmartOrders() {
         : `Place ${preparation.orders.length} order${preparation.orders.length === 1 ? "" : "s"}`;
 
   const executeNext = () => {
-    if (needsSellApproval) return run("approve-sell", sellFlow.approve);
-    if (needsBuyApproval) return run("approve-buy", buyFlow.approve);
+    if (needsSellApproval) {
+      return run("approve-sell", () => sellFlow.approve(preparation.sellAmount));
+    }
+    if (needsBuyApproval) {
+      return run("approve-buy", () => buyFlow.approve(preparation.buyAmount));
+    }
     const params = preparation.orders.map((order) => order.params);
     const place = preparation.sellAmount > 0n ? sellFlow.place : buyFlow.place;
     return run("place", () => place(params));
@@ -295,11 +313,25 @@ export function SmartOrders() {
       </div>
       <button
         onClick={() => void createPlan()}
-        disabled={planning || !live || text.trim().length < 3}
+        disabled={plannerConfigured !== true || planning || !live || text.trim().length < 3}
         className="w-full rounded border border-brand/50 bg-brand/10 py-1.5 text-xs font-semibold text-brand hover:bg-brand/15 disabled:opacity-40"
       >
-        {planning ? "Understanding your plan…" : plan ? "Update order plan" : "Create order plan"}
+        {plannerConfigured === null
+          ? "Checking planner…"
+          : plannerConfigured === false
+            ? "AI planner unavailable"
+            : planning
+              ? "Understanding your plan…"
+              : plan
+                ? "Update order plan"
+                : "Create order plan"}
       </button>
+
+      {plannerConfigured === false && (
+        <div className="rounded border border-warn/40 bg-warn/10 p-2 text-[11px] text-warn">
+          The production AI provider is not configured, so planning is disabled. Manual limit orders remain fully available.
+        </div>
+      )}
 
       {error && <div className="rounded border border-down/40 bg-down/10 p-2 text-[11px] text-down">{error}</div>}
 
@@ -405,7 +437,7 @@ export function SmartOrders() {
                   : buttonLabel}
           </button>
           <div className="text-center text-[9px] text-muted">
-            The AI cannot access your wallet or execute without your signature.
+            Exact approvals only. The AI cannot access your wallet or execute without your signature.
           </div>
         </div>
       )}

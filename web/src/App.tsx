@@ -23,6 +23,9 @@ const BridgePage = lazy(() =>
 const PortfolioPage = lazy(() =>
   import("./components/portfolio/PortfolioPage.tsx").then((m) => ({ default: m.PortfolioPage })),
 );
+const OnchainProofPage = lazy(() =>
+  import("./components/proof/OnchainProofPage.tsx").then((m) => ({ default: m.OnchainProofPage })),
+);
 
 export default function App() {
   const { token, pool } = useTerminal();
@@ -31,10 +34,11 @@ export default function App() {
   const desktop = useMediaQuery("(min-width: 1024px)");
   // /token/monad/0x… deep links ↔ selected market; true while a deep link is
   // still resolving on first load — show a boot loader, never flash the home page.
-  const { error: marketError } = useUrlMarketSync();
+  const { error: marketError, retry: retryMarket } = useUrlMarketSync();
 
   const onBridge = path === "/bridge" || path === "/swap";
   const onPortfolio = path === "/portfolio";
+  const onProof = path === "/proof";
   // "/" is ALWAYS the home page — a selected token only means the terminal
   // when the URL says so (logo → home works even mid-trade).
   const onTerminal = /^\/token\/monad\/0x[0-9a-fA-F]{40}$/.test(path);
@@ -54,9 +58,11 @@ export default function App() {
           <BridgePage />
         ) : onPortfolio ? (
           <PortfolioPage />
+        ) : onProof ? (
+          <OnchainProofPage />
         ) : onTerminal ? (
           marketError ? (
-            <TokenOverview error={marketError} />
+            <TokenOverview error={marketError} onRetry={retryMarket} />
           ) : !token ? (
             <TokenLoading path={path} />
           ) : !pool ? (

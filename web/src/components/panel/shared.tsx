@@ -160,7 +160,7 @@ export function ApprovalGate({
           <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-brand text-brand">
             1
           </span>
-          One-time approval lets the book pull tokens only when your trigger fires.
+          Exact approval covers only this order amount. Tokens stay in your wallet until execution.
         </div>
       )}
       {needsApproval ? (

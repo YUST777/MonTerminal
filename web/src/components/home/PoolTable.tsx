@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { usePublicClient } from "wagmi";
+import { isAddress, type Address } from "viem";
 import { MARKETS, monad } from "@monolimit/shared";
-import { lookupTopPool, useOnchainIcons, usePairsMedia } from "../../hooks/market.ts";
+import { lookupTokenCached, lookupTopPool, useOnchainIcons, usePairsMedia } from "../../hooks/market.ts";
 import type { TopPool } from "../../lib/gecko.ts";
 import { fmtAge, fmtAmountNum, fmtPct, fmtUsd, shortAddr } from "../../lib/format.ts";
 import { useTerminal } from "../../state/terminal.ts";
@@ -15,6 +16,7 @@ const GRID =
 export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; loading: boolean }) {
   const client = usePublicClient({ chainId: monad.id });
   const setMarket = useTerminal((s) => s.setMarket);
+  const setDetectedToken = useTerminal((s) => s.setDetectedToken);
   const push = useToasts((s) => s.push);
   const [resolving, setResolving] = useState<string | null>(null);
   // DexScreener icons fill the gaps in gecko's base_token sideload;
@@ -26,10 +28,18 @@ export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; lo
     if (!client || resolving) return;
     setResolving(p.address);
     try {
-      // lookupTopPool routes rows on unsupported DEXes (nad.fun & co.)
-      // through the token's deepest supported pool automatically.
-      const r = await lookupTopPool(client, p);
-      setMarket(r.token, r.pool);
+      if (!isAddress(p.baseToken)) throw new Error("This discovery row has an invalid token address");
+      // Known supported rows can open their exact pool immediately. Rows from
+      // another DEX are resolved by token so supported fallback pools still
+      // open, while genuinely unsupported tokens become view-only pages.
+      if (MARKETS.some((m) => m.dexId === p.dexId)) {
+        const r = await lookupTopPool(client, p);
+        setMarket(r.token, r.pool);
+      } else {
+        const r = await lookupTokenCached(client, p.baseToken as Address);
+        if (r.pool) setMarket(r.token, r.pool);
+        else setDetectedToken(r.token, r.marketNotice ?? "No supported trading pool found");
+      }
     } catch (err) {
       push("error", (err as Error).message.slice(0, 140));
     } finally {
@@ -73,7 +83,7 @@ export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; lo
                     <span className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted">
                       <span className="truncate">{shortAddr(p.baseToken)}</span>
                       <span className="shrink-0 rounded bg-overlay px-1 py-px text-[8px] font-medium uppercase">
-                        {(market?.label ?? p.dexId.replace(/-monad$/, "").replace(/-/g, " ")).split(" ")[0] || "?"}
+                        {sourceDexLabel(p.dexId, market)}
                       </span>
                       <span className="shrink-0">· {p.createdAtSec != null ? fmtAge(p.createdAtSec) : "—"}</span>
                     </span>
@@ -153,9 +163,7 @@ export function PoolTable({ pools, loading }: { pools: TopPool[] | undefined; lo
                   <span className="flex items-center gap-1.5 text-[10px] text-muted">
                     <span>{shortAddr(p.baseToken)}</span>
                     <span className="rounded bg-overlay px-1 py-px text-[8px] font-medium uppercase">
-                      {(market?.label ?? p.dexId.replace(/-monad$/, "").replace(/-/g, " ")).split(
-                        " ",
-                      )[0] || "?"}
+                      {sourceDexLabel(p.dexId, market)}
                     </span>
                   </span>
                 </span>
@@ -209,6 +217,10 @@ function PctCell({ v }: { v: number | null }) {
       {v != null ? fmtPct(v) : "—"}
     </span>
   );
+}
+
+function sourceDexLabel(dexId: string, market: (typeof MARKETS)[number] | undefined) {
+  return market?.label ?? (dexId.replace(/-monad$/, "").replace(/-/g, " ") || "Unknown DEX");
 }
 
 /** Shimmer placeholder rows shown only on first (uncached) load. */

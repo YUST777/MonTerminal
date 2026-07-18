@@ -12,6 +12,7 @@ import { STATUS, useUserOrders } from "../../hooks/orders.ts";
 import { fmtPct, fmtUsd } from "../../lib/format.ts";
 import { AssetsTable } from "./AssetsTable.tsx";
 import { PortfolioSide } from "./PortfolioSide.tsx";
+import { PortfolioShareCard } from "./PortfolioShareCard.tsx";
 import { ValueChart } from "./ValueChart.tsx";
 import { usePersistentState } from "../../lib/persist.ts";
 
@@ -74,18 +75,26 @@ export function PortfolioPage() {
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {/* header card: value · live chart · chips + stats */}
           <div className="rounded-xl border border-line bg-raised/40 p-3.5 sm:p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[15px] font-semibold">My Portfolio</span>
+                <button
+                  onClick={() => setHidden((v) => !v)}
+                  aria-label={hidden ? "Show values" : "Hide values"}
+                  className="flex size-6 items-center justify-center rounded-md text-muted hover:bg-overlay hover:text-fg"
+                >
+                  <EyeGlyph off={hidden} />
+                </button>
+              </div>
+              <PortfolioShareCard
+                portfolio={p}
+                address={address!}
+                openOrders={openOrders}
+                executed={executed}
+              />
+            </div>
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
               <div className="shrink-0 xl:w-56">
-                <div className="flex items-center gap-2">
-                  <span className="text-[15px] font-semibold">My Portfolio</span>
-                  <button
-                    onClick={() => setHidden((v) => !v)}
-                    aria-label={hidden ? "Show values" : "Hide values"}
-                    className="flex size-6 items-center justify-center rounded-md text-muted hover:bg-overlay hover:text-fg"
-                  >
-                    <EyeGlyph off={hidden} />
-                  </button>
-                </div>
                 {portfolio.isLoading ? (
                   <span className="skeleton mt-2 block h-10 w-44 rounded" />
                 ) : (

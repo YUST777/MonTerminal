@@ -4,9 +4,9 @@
 
 **[monterminal.fun](https://www.monterminal.fun/)** — non-custodial stop-losses, take-profits and sell ladders on Monad mainnet.
 
-You buy a meme coin and want to sleep. MonTerminal gives you GMGN-style automation, fully on-chain: *"sell everything if I'm down 50%"*, *"at 2× sell half, let the rest ride"* — with no deposits, no custody, and permissionless execution. Around it: a full trading terminal (live charts, order book depth, instant buys), an any-to-any swap + bridge over 59 chains, and a live portfolio.
+You buy a meme coin and do not want to watch the chart all night. MonTerminal implements on-chain order triggers such as *"sell everything if I'm down 50%"* and *"at 2× sell half, let the rest ride"* — with no deposits, no custody, and permissionless execution. Around it: a live trading terminal, AMM liquidity depth, instant buys, Relay-powered swap/bridge routes, and a live portfolio.
 
-Built for the buildanything.so **Spark** Monad hackathon. 100% original code.
+Built during the buildanything.so **Spark** Monad hackathon using original application and contract logic with standard open-source dependencies.
 
 ## Features
 
@@ -14,7 +14,7 @@ Built for the buildanything.so **Spark** Monad hackathon. 100% original code.
 
 ### Buy / Sell limit orders — set it once, sleep peacefully
 
-The heart of MonTerminal: on-chain take-profits, stop-losses and buy-the-dip limits with **no custody** — tokens stay in your wallet until the trigger fires. Pick a price (or tap a ±% chip), slide the amount, place. Sell orders auto-detect stop-loss vs take-profit from where your price sits vs market. The **AI tab** accepts plans such as *"sell 20% at $0.0003, 30% at $0.0004, and buy 10% if it drops 50%"*, converts them into schema-validated buy/sell intents, and shows the exact on-chain triggers before the wallet signs one atomic `placeOrders` transaction. The model can draft but cannot access the wallet, calculate calldata, or execute anything; deterministic code owns price/tick conversion, allocation checks, approvals and contract parameters. Execution is permissionless — the keeper bot, MEV searchers, or anyone else fills triggered orders and earns the maker-set fee, so orders execute 24/7 even while you sleep.
+The heart of MonTerminal: on-chain take-profits, stop-losses and buy-the-dip limits with **no custody** — tokens stay in your wallet until the trigger fires. Pick a price (or tap a ±% chip), slide the amount, place. Sell orders auto-detect stop-loss vs take-profit from where your price sits vs market. When a model provider is configured, the **AI tab** accepts plans such as *"sell 20% at $0.0003, 30% at $0.0004, and buy 10% if it drops 50%"*, converts them into schema-validated buy/sell intents, and shows the exact on-chain triggers before the wallet signs one atomic `placeOrders` transaction. The model can draft but cannot access the wallet, calculate calldata, or execute anything; deterministic code owns price/tick conversion, allocation checks, exact approvals and contract parameters. Execution is permissionless — the keeper bot, MEV searchers, or anyone else can fill triggered orders and earn the maker-set fee. The repository includes the keeper implementation; continuous hosted operation is only claimed once a public heartbeat is available.
 
 ![New pairs catcher](web/public/md/new_pairs.webp)
 
@@ -99,6 +99,18 @@ All Sourcify-verified.
 | PancakeSwap v3 Factory | `0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865` |
 | SwapRouter02 | `0xfE31F71C1b106EAc32F1A19239c9a9A72ddfb900` |
 
+## Live proof
+
+- App: https://www.monterminal.fun/
+- In-product RPC proof: https://www.monterminal.fun/proof
+- The proof page reads chain ID, current block, deployed bytecode, `nextOrderId()`, and recent order events directly from Monad RPC.
+- Example `OrderPlaced`, `OrderCancelled`, and `OrderExecuted` transactions will be added after the first deliberately small mainnet lifecycle is completed.
+- Keeper status is not presented as online until a continuously hosted process and public heartbeat are verified.
+
+## Safety
+
+MonTerminal is unaudited hackathon software. Use small amounts. Orders require sufficient wallet balance and allowance when execution occurs; transferring tokens or revoking allowance can make an order unfillable. Exact-amount approval is the default. Stop-loss execution is not guaranteed during illiquidity or extreme slippage, and users can cancel orders or revoke approvals at any time.
+
 ## Running it
 
 ```sh
@@ -115,6 +127,9 @@ pnpm keeper
 
 # web terminal
 pnpm web
+
+# post-deploy checks against production (or pass another base URL)
+pnpm smoke:production
 ```
 
 `.env` is never committed — see `.env.example`.

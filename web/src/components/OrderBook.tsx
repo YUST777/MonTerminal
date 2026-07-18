@@ -5,7 +5,7 @@ import { useTerminal } from "../state/terminal.ts";
 import { usePersistentState } from "../lib/persist.ts";
 
 /**
- * Right-of-chart panel, hypeterminal-style: Order Book | Trades tabs.
+ * Right-of-chart panel, hypeterminal-style: AMM Depth | Trades tabs.
  * The book is the pool's REAL on-chain depth (tick liquidity per spacing
  * range); trades are the pool's recent swaps from GeckoTerminal.
  */
@@ -21,7 +21,7 @@ export function OrderBook() {
           onClick={() => setTab("book")}
           className={tab === "book" ? "border-b border-brand pb-px font-medium" : "text-muted hover:text-fg"}
         >
-          Order Book
+          AMM Depth
         </button>
         <button
           onClick={() => setTab("trades")}
@@ -72,7 +72,7 @@ function BookLadder() {
         {!book && <div className="px-2 py-3 text-center text-muted">Loading depth…</div>}
       </div>
       <div className="border-t border-line px-2 py-1 text-[10px] text-muted">
-        live AMM depth · {pool?.market.label} tick liquidity
+        derived from live {pool?.market.label} tick liquidity
       </div>
     </div>
   );

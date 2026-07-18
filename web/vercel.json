@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "functions": {
+    "api/rpc.ts": {
+      "includeFiles": "server/rpcGateway.ts",
+      "maxDuration": 30
+    },
+    "api/gecko.ts": {
+      "includeFiles": "server/geckoGateway.ts",
+      "maxDuration": 30
+    },
+    "api/portfolio-history.ts": {
+      "includeFiles": "server/portfolioHistoryApi.ts",
+      "maxDuration": 30
+    },
+    "api/order-intent.ts": {
+      "includeFiles": "{server/orderIntentApi.ts,src/lib/orderIntent.ts}",
+      "maxDuration": 45
+    }
+  }
+}

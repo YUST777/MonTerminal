@@ -1,4 +1,4 @@
-import { erc20Abi, maxUint256, parseAbi, type Address } from "viem";
+import { erc20Abi, parseAbi, type Address } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -137,18 +137,18 @@ export function usePlaceOrders(token: TokenMeta | null) {
     return book;
   };
 
-  const approve = async () => {
-    if (!token) return;
+  const approve = async (amount: bigint) => {
+    if (!token || amount <= 0n) return;
     const hash = await writeContractAsync({
       address: token.address,
       abi: erc20Abi,
       functionName: "approve",
-      args: [requireBook(), maxUint256],
+      args: [requireBook(), amount],
       chainId: monad.id,
     });
     await client!.waitForTransactionReceipt({ hash });
     await refetchAllowance();
-    push("success", `${token.symbol} approved`);
+    push("success", `${token.symbol} exact approval confirmed`);
   };
 
   const place = async (params: ReturnType<typeof buildOrderParams>[]) => {

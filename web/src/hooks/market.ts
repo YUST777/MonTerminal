@@ -55,6 +55,41 @@ export interface TokenLookup {
   marketNotice: string | null;
 }
 
+export type TokenLookupFailureKind = "network" | "no-contract" | "non-erc20" | "unknown";
+
+export interface TokenLookupFailure {
+  kind: TokenLookupFailureKind;
+  message: string;
+}
+
+class TokenLookupError extends Error {
+  constructor(
+    readonly kind: TokenLookupFailureKind,
+    message: string,
+  ) {
+    super(message);
+    this.name = "TokenLookupError";
+  }
+}
+
+function networkLookupError(reason: unknown): TokenLookupError {
+  const detail = reason instanceof Error ? reason.message : "The RPC request failed";
+  return new TokenLookupError(
+    "network",
+    `Monad RPC is temporarily unavailable. ${detail}`,
+  );
+}
+
+function lookupFailure(reason: unknown): TokenLookupFailure {
+  if (reason instanceof TokenLookupError) {
+    return { kind: reason.kind, message: reason.message };
+  }
+  return {
+    kind: "unknown",
+    message: reason instanceof Error ? reason.message : "Unable to inspect this contract",
+  };
+}
+
 const tokenLookupPromises = new Map<string, Promise<TokenLookup>>();
 
 /** "capricorn-monad" → "Capricorn" — for human-readable lookup errors. */
@@ -205,19 +240,39 @@ async function marketForPool(client: Client, pool: Address): Promise<Market | nu
  * every market's factory for TOKEN/WMON and TOKEN/USDC pairs directly.
  */
 export async function lookupToken(client: Client, address: Address): Promise<TokenLookup> {
-  const [code, meta, pairs] = await Promise.all([
-    client.getCode({ address }),
-    fetchErc20Meta(client, address).catch(() => null),
-    fetchTokenPairs(address).catch(() => []),
-  ]);
+  const code = await client.getCode({ address }).catch((reason) => {
+    throw networkLookupError(reason);
+  });
   // Not a contract at all → clearest possible message after the parallel probe.
   if (!code || code === "0x") {
-    throw new Error(
+    throw new TokenLookupError(
+      "no-contract",
       "No contract at this address on Monad — did you paste a wallet address, or a token from another chain?",
     );
   }
 
-  if (!meta) throw new Error("This contract isn't a standard ERC-20 token");
+  let meta: TokenMeta;
+  try {
+    meta = await fetchErc20Meta(client, address);
+  } catch (reason) {
+    const message = reason instanceof Error ? reason.message.toLowerCase() : "";
+    if (
+      message.includes("http request failed") ||
+      message.includes("failed to fetch") ||
+      message.includes("timeout") ||
+      message.includes("rpc") ||
+      message.includes("503") ||
+      message.includes("502") ||
+      message.includes("500")
+    ) {
+      throw networkLookupError(reason);
+    }
+    throw new TokenLookupError(
+      "non-erc20",
+      "A contract exists at this address, but it does not expose the ERC-20 metadata MonTerminal requires.",
+    );
+  }
+  const pairs = await fetchTokenPairs(address).catch(() => []);
   const token = meta;
 
   const candidates = pairs.slice(0, 8).filter((p) => isAddress(p.address));
@@ -253,8 +308,8 @@ export async function lookupToken(client: Client, address: Address): Promise<Tok
     token,
     pool: null,
     marketNotice: elsewhere
-      ? `${token.symbol}'s pools (deepest: $${Math.round(elsewhere.liquidityUsd).toLocaleString()} on ${prettyDex(elsewhere.dexId)}) aren't on a factory MonTerminal trades on (${MARKETS.map((m) => m.label).join(", ")})`
-      : `${token.symbol} has no pool on a supported DEX (${MARKETS.map((m) => m.label).join(", ")})`,
+      ? `${token.symbol} has no supported MonTerminal pool yet. Its deepest indexed pool is on ${prettyDex(elsewhere.dexId)}.`
+      : `${token.symbol} has no pool on a supported DEX yet.`,
   };
 }
 
@@ -476,12 +531,17 @@ export function useTokenMedia(token: Address | undefined) {
  * still resolving so the app can show a boot loader instead of flashing the
  * home page.
  */
-export function useUrlMarketSync(): { resolving: boolean; error: string | null } {
+export function useUrlMarketSync(): {
+  resolving: boolean;
+  error: TokenLookupFailure | null;
+  retry: () => void;
+} {
   const client = usePublicClient({ chainId: monad.id });
   const { token, setMarket, setDetectedToken, clearMarket } = useTerminal();
   const path = usePathname();
   const inFlight = useRef<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TokenLookupFailure | null>(null);
+  const [attempt, setAttempt] = useState(0);
   // A deep-linked path means a market is about to load — start in loading state.
   const [resolving, setResolving] = useState(() =>
     /^\/token\/monad\/0x[0-9a-fA-F]{40}$/.test(window.location.pathname),
@@ -517,13 +577,13 @@ export function useUrlMarketSync(): { resolving: boolean; error: string | null }
       })
       .catch((reason: unknown) => {
         clearMarket();
-        setError(reason instanceof Error ? reason.message : "Unable to inspect this contract");
+        setError(lookupFailure(reason));
       })
       .finally(() => {
         inFlight.current = null;
         setResolving(false);
       });
-  }, [client, path, setMarket, setDetectedToken, clearMarket]);
+  }, [client, path, attempt, setMarket, setDetectedToken, clearMarket]);
 
   useEffect(() => {
     if (!token) return;
@@ -532,7 +592,7 @@ export function useUrlMarketSync(): { resolving: boolean; error: string | null }
     replacePath(`/token/monad/${token.address.toLowerCase()}`);
   }, [token]);
 
-  return { resolving, error };
+  return { resolving, error, retry: () => setAttempt((value) => value + 1) };
 }
 
 /** Live pool tick + TOKEN price in the quote token from slot0 — same source the contract uses. */

@@ -1,0 +1,13 @@
+refrence/
+reference/
+contracts/lib/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+node_modules/
+web/node_modules/
+web/dist/
+.playwright-cli/
+output/
+.git/
+*.log

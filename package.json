@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "smoke:production": "bash scripts/smoke-production.sh",
     "keeper": "pnpm --filter @monolimit/keeper start",
     "web": "pnpm --filter @monolimit/web dev"
   },

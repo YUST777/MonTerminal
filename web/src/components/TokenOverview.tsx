@@ -1,36 +1,60 @@
 import { useState } from "react";
-import { Check, Clipboard, ExternalLink, Search, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Check, Clipboard, ExternalLink, RefreshCw, Search, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useTokenBalance } from "../hooks/trade.ts";
-import { useTokenMedia } from "../hooks/market.ts";
+import { useTokenMedia, type TokenLookupFailure } from "../hooks/market.ts";
 import { fmtAmount, shortAddr } from "../lib/format.ts";
 import { navigate } from "../lib/router.ts";
 import { useTerminal } from "../state/terminal.ts";
 import { TokenIcon } from "./TokenIcon.tsx";
 
-export function TokenOverview({ error }: { error?: string }) {
+export function TokenOverview({
+  error,
+  onRetry,
+}: {
+  error?: TokenLookupFailure;
+  onRetry?: () => void;
+}) {
   const { token, marketNotice } = useTerminal();
   const { data: media } = useTokenMedia(token?.address);
   const { data: balance } = useTokenBalance(token?.address);
   const [copied, setCopied] = useState(false);
 
   if (error || !token) {
+    const networkFailure = error?.kind === "network" || error?.kind === "unknown";
+    const title =
+      error?.kind === "no-contract"
+        ? "No contract found at this address"
+        : error?.kind === "non-erc20"
+          ? "Contract is not a standard ERC-20"
+          : "Monad RPC is temporarily unavailable";
     return (
       <div className="h-full overflow-y-auto px-4 py-8 sm:px-8 sm:py-12">
         <div className="mx-auto max-w-xl rounded-xl border border-down/30 bg-down/5 p-5 sm:p-7">
           <div className="mb-4 flex size-11 items-center justify-center rounded-full bg-down/10 text-down">
             <TriangleAlert className="size-5" />
           </div>
-          <h1 className="text-xl font-semibold">This is not a Monad ERC-20</h1>
+          <h1 className="text-xl font-semibold">{title}</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            {error ?? "The contract could not be inspected."}
+            {error?.message ?? "The contract could not be inspected."}
           </p>
-          <button
-            onClick={() => navigate("/")}
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-fg px-4 py-2 text-sm font-semibold text-bg hover:opacity-90"
-          >
-            <Search className="size-4" />
-            Browse tokens
-          </button>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {networkFailure && onRetry && (
+              <button
+                onClick={onRetry}
+                className="inline-flex items-center gap-2 rounded-lg bg-fg px-4 py-2 text-sm font-semibold text-bg hover:opacity-90"
+              >
+                <RefreshCw className="size-4" />
+                Retry RPC
+              </button>
+            )}
+            <button
+              onClick={() => navigate("/")}
+              className="inline-flex items-center gap-2 rounded-lg border border-line bg-bg px-4 py-2 text-sm font-semibold hover:border-brand"
+            >
+              <Search className="size-4" />
+              Browse tokens
+            </button>
+          </div>
         </div>
       </div>
     );

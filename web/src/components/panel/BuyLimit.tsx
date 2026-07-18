@@ -74,7 +74,7 @@ export function BuyLimit() {
       )}
       <ApprovalGate
         needsApproval={needsApproval(amountIn)}
-        onApprove={approve}
+        onApprove={() => approve(amountIn)}
         onPlace={async () => {
           if (!live || !valid || dropPct == null) return;
           await place([buildBuyLimitParams({ amountIn, dropPct }, token, pool, live.tick)]);

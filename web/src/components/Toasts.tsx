@@ -32,7 +32,7 @@ export function Toasts() {
         <button
           key={t.id}
           onClick={() => dismiss(t.id)}
-          className={`max-w-sm rounded border px-4 py-3 text-left text-sm shadow-lg bg-raised ${
+          className={`w-fit max-w-[min(24rem,calc(100vw-1.5rem))] break-words rounded border bg-raised px-3 py-2.5 text-left text-xs leading-relaxed shadow-lg ${
             t.kind === "error"
               ? "border-down text-down"
               : t.kind === "success"

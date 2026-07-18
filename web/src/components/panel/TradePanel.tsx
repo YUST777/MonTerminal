@@ -84,6 +84,12 @@ export function TradePanel() {
       {tab === "Limit" && (limitSide === "Buy" ? <BuyLimit /> : <SellLimit />)}
       {tab === "AI" && <SmartOrders />}
       </div>
+      {(tab === "Limit" || tab === "AI") && (
+        <div className="mx-0.5 mb-2 rounded border border-warn/30 bg-warn/5 p-2 text-[9px] leading-relaxed text-muted">
+          Unaudited hackathon software. Use small amounts. Orders require enough balance and allowance at execution;
+          fills are not guaranteed during illiquidity or extreme slippage. Cancel orders or revoke approvals any time.
+        </div>
+      )}
     </div>
   );
 }
