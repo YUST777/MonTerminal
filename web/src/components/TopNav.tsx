@@ -57,6 +57,8 @@ export function TopNav() {
         <HeaderNavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
           Portfolio
         </HeaderNavItem>
+        <HeaderSoonItem>Launchpad</HeaderSoonItem>
+        <HeaderSoonItem>Rewards</HeaderSoonItem>
         <HeaderNavItem active={onProof} onClick={() => navigate("/proof")}>
           Live Proof
         </HeaderNavItem>
@@ -116,6 +118,21 @@ function HeaderNavItem({
       }`}
     >
       {children}
+    </button>
+  );
+}
+
+function HeaderSoonItem({ children }: { children: React.ReactNode }) {
+  return (
+    <button
+      disabled
+      title="Coming soon"
+      className="cursor-not-allowed rounded-md px-3 py-1.5 text-muted/55"
+    >
+      {children}
+      <span className="ml-1 align-top text-[8px] font-bold uppercase tracking-wide text-brand/70">
+        Soon
+      </span>
     </button>
   );
 }
