@@ -12,6 +12,14 @@ curl --fail --silent --show-error "$BASE_URL/" > "$TMP_DIR/index.html"
 grep -q "MonTerminal" "$TMP_DIR/index.html"
 echo "✓ frontend"
 
+curl --fail --silent --show-error "$BASE_URL/proof" > "$TMP_DIR/proof.html"
+grep -q "MonTerminal" "$TMP_DIR/proof.html"
+curl --fail --silent --show-error \
+  "$BASE_URL/token/monad/0x350035555e10d9afaf1566aaebfced5ba6c27777" \
+  > "$TMP_DIR/token.html"
+grep -q "MonTerminal" "$TMP_DIR/token.html"
+echo "✓ SPA deep links"
+
 curl --fail --silent --show-error \
   -H 'content-type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
