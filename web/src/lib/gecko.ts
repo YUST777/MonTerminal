@@ -5,51 +5,25 @@
 
 import { supaGet, supaPut } from "./supacache.ts";
 
-const BASE = "https://api.geckoterminal.com/api/v2";
+const BASE = "/api/v2";
 
 /*
- * Global throttle — the free tier allows ~30 calls/min PER IP, shared by every
- * tab. Home + portfolio + sparklines together easily blow that, and a 429
- * response has no CORS headers, so the whole app "CORS-fails" at once. Every
- * gecko call goes through here: a short burst is allowed, then calls are
- * spaced to stay under the limit; identical in-flight URLs are deduped and a
- * single 429 gets one delayed retry.
+ * Requests go through the same-origin server proxy. The proxy owns the
+ * upstream throttle and cache, so browser tabs do not compete for Gecko's
+ * per-IP quota or expose third-party CORS failures in the console.
  */
-const GAP_MS = 2_200; // ≈27/min sustained
-const BURST = 5;
-let nextSlot = 0;
-
-function reserveSlot(): number {
-  const now = Date.now();
-  nextSlot = Math.max(nextSlot, now - GAP_MS * (BURST - 1));
-  const start = nextSlot;
-  nextSlot += GAP_MS;
-  return Math.max(0, start - now);
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const inflight = new Map<string, Promise<any>>();
 
-async function geckoJson(url: string): Promise<any> {
-  const pending = inflight.get(url);
+async function geckoJson(path: string): Promise<any> {
+  const pending = inflight.get(path);
   if (pending) return pending;
   const p = (async () => {
-    await sleep(reserveSlot());
-    // A 429 has no CORS headers, so the browser surfaces it as a thrown
-    // TypeError rather than a readable status — treat both as rate-limited.
-    let res: Response | null = await fetch(url).catch(() => null);
-    if (!res || res.status === 429) {
-      await sleep(12_000);
-      await sleep(reserveSlot());
-      // the retry can be CORS-masked too — surface a clean 429 either way
-      res = await fetch(url).catch(() => null);
-      if (!res) throw new Error("GeckoTerminal 429");
-    }
-    if (!res.ok) throw new Error(`GeckoTerminal ${res.status}`);
+    const res = await fetch(`/api/gecko?path=${encodeURIComponent(path)}`);
+    if (!res.ok) throw new Error(`Gecko proxy ${res.status}`);
     return res.json();
   })();
-  inflight.set(url, p);
-  p.catch(() => {}).finally(() => inflight.delete(url));
+  inflight.set(path, p);
+  p.catch(() => {}).finally(() => inflight.delete(path));
   return p;
 }
 

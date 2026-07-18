@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { getGecko } from "./server/geckoGateway.ts";
 import { createOrderIntent } from "./server/orderIntentApi.ts";
 import { getPortfolioHistory } from "./server/portfolioHistoryApi.ts";
 import { forwardRpc, rpcUpstreams } from "./server/rpcGateway.ts";
@@ -68,6 +69,35 @@ function rpcApi(env: Record<string, string>): Plugin {
   };
 }
 
+function geckoApi(): Plugin {
+  return {
+    name: "gecko-api",
+    configureServer(server) {
+      server.middlewares.use("/api/gecko", async (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        if (req.method !== "GET") {
+          res.statusCode = 405;
+          res.setHeader("Allow", "GET");
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        try {
+          const url = new URL(req.url ?? "/", "http://localhost");
+          const value = await getGecko(url.searchParams.get("path"));
+          res.statusCode = 200;
+          res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=300");
+          res.end(JSON.stringify(value));
+        } catch (error) {
+          res.statusCode = 502;
+          res.setHeader("Cache-Control", "no-store");
+          res.end(JSON.stringify({ error: (error as Error).message.slice(0, 200) }));
+        }
+      });
+    },
+  };
+}
+
 function smartOrderApi(env: Record<string, string>): Plugin {
   return {
     name: "smart-order-api",
@@ -124,6 +154,6 @@ function smartOrderApi(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
-    plugins: [react(), tailwindcss(), portfolioHistoryApi(), rpcApi(env), smartOrderApi(env)],
+    plugins: [react(), tailwindcss(), portfolioHistoryApi(), rpcApi(env), geckoApi(), smartOrderApi(env)],
   };
 });

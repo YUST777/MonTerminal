@@ -42,9 +42,8 @@ export function orderKey(o: Pick<UserOrder, "book" | "orderId">) {
  * OrderPlaced logs filtered by maker + one getOrders multicall per book for
  * live status. Events are the contracts' only data feed — no indexer.
  *
- * Event queries run on a dedicated client with patient retries against
- * rpc1.monad.xyz (rpc.monad.xyz caps eth_getLogs at ~100 blocks; rpc1 serves
- * 500k-block ranges with CORS), paged in 50k-block chunks. Results are
+ * Event queries run through the same-origin RPC gateway with patient retries
+ * and server-side upstream fallback, paged in 50k-block chunks. Results are
  * cached per maker+book: each refetch only scans blocks that arrived since
  * the last one.
  */
@@ -52,7 +51,7 @@ const LOG_PAGE = 50_000n;
 
 export const logClient = createPublicClient({
   chain: monad,
-  transport: http("https://rpc1.monad.xyz", { retryCount: 3, retryDelay: 800 }),
+  transport: http("/api/rpc", { retryCount: 2, retryDelay: 800 }),
 });
 
 interface LogCache {
@@ -74,7 +73,7 @@ export function useUserOrders() {
   return useQuery({
     queryKey: ["user-orders", address],
     enabled: !!client && !!address,
-    refetchInterval: 5_000,
+    refetchInterval: 15_000,
     queryFn: async (): Promise<UserOrder[]> => {
       // books that aren't deployed yet (0x0 in the registry) have no orders —
       // skip them instead of paging getLogs against the zero address

@@ -57,13 +57,9 @@ const connectors = connectorsForWallets(
 const transports = Object.fromEntries(
   BRIDGE_CHAINS.map((c) => [c.id, http()]),
 ) as Record<(typeof BRIDGE_CHAINS)[number]["id"], Transport>;
-// Browser-curated Monad list: rpc2 rate-limits hard and rpc3 times out,
-// so only the two healthy endpoints ship to the client.
-transports[monad.id] = fallback([
-  http("/api/rpc"),
-  http("https://rpc.monad.xyz"),
-  http("https://rpc1.monad.xyz"),
-]);
+// Keep Monad RPC traffic same-origin. The server gateway owns upstream
+// fallback, so a provider rate limit never turns into browser CORS noise.
+transports[monad.id] = http("/api/rpc");
 transports[mainnet.id] = http("https://ethereum-rpc.publicnode.com");
 transports[base.id] = fallback([
   http("https://base-rpc.publicnode.com"),
