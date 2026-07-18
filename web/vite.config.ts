@@ -2,7 +2,41 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { createOrderIntent } from "./server/orderIntentApi.ts";
+import { getPortfolioHistory } from "./server/portfolioHistoryApi.ts";
 import { forwardRpc, rpcUpstreams } from "./server/rpcGateway.ts";
+
+function portfolioHistoryApi(): Plugin {
+  return {
+    name: "portfolio-history-api",
+    configureServer(server) {
+      server.middlewares.use("/api/portfolio-history", async (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Cache-Control", "private, max-age=60");
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+        try {
+          const chunks: Buffer[] = [];
+          let size = 0;
+          for await (const chunk of req) {
+            const buffer = Buffer.from(chunk);
+            size += buffer.length;
+            if (size > 8_192) throw new Error("Request is too large");
+            chunks.push(buffer);
+          }
+          const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+          res.statusCode = 200;
+          res.end(JSON.stringify(await getPortfolioHistory(body)));
+        } catch (error) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: (error as Error).message.slice(0, 200) }));
+        }
+      });
+    },
+  };
+}
 
 function rpcApi(env: Record<string, string>): Plugin {
   return {
@@ -90,6 +124,6 @@ function smartOrderApi(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
-    plugins: [react(), tailwindcss(), rpcApi(env), smartOrderApi(env)],
+    plugins: [react(), tailwindcss(), portfolioHistoryApi(), rpcApi(env), smartOrderApi(env)],
   };
 });

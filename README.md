@@ -137,4 +137,5 @@ node ../scripts/sync-abi.mjs   # refresh shared ABI after any contract change
 - **Live price** — on-chain `slot0` every 3s (the same source the contract's TWAP derives from)
 - **Orders** — contract events + `getOrders` multicall; no external indexer
 - **Pairs / prices / icons** — DexScreener (CORS-friendly, generous limits), GeckoTerminal behind it
+- **Portfolio charts** — project-owned `/api/portfolio-history` batch gateway; real GeckoTerminal OHLCV is fetched in parallel once, shared by both charts and every asset sparkline, then cached locally
 - **Swap / bridge / instant buys** — [Relay](https://relay.link) (same-chain swaps, cross-chain bridging from 59 chains, quote/v2 + status lifecycle)

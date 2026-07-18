@@ -153,6 +153,7 @@ export function PortfolioPage() {
             totalUsd={p?.totalUsd ?? 0}
             loading={portfolio.isLoading}
             hidden={hidden}
+            history={headHistory.assetSeries}
           />
 
           {/* performance overview: holdings value vs MON benchmark */}
@@ -202,6 +203,7 @@ export function PortfolioPage() {
             hidden={hidden}
             address={address}
             priceOf={priceOf}
+            history={headHistory.assetSeries}
           />
         </div>
       </div>

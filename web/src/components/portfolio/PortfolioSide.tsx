@@ -1,5 +1,6 @@
 import type { ActivityEntry, PortfolioAsset } from "../../hooks/portfolio.ts";
 import { fmtAge, fmtAmountNum, fmtPct, fmtUsd, shortAddr } from "../../lib/format.ts";
+import type { PortfolioPricePoint } from "../../lib/portfolioHistory.ts";
 import { TokenIcon } from "../TokenIcon.tsx";
 import { Sparkline } from "./AssetsTable.tsx";
 
@@ -16,6 +17,7 @@ export function PortfolioSide({
   hidden,
   address,
   priceOf,
+  history,
 }: {
   assets: PortfolioAsset[];
   totalUsd: number;
@@ -25,11 +27,12 @@ export function PortfolioSide({
   address: string | undefined;
   /** live USD price by token address (lowercased) — for activity $ lines */
   priceOf: Map<string, number>;
+  history: Record<string, PortfolioPricePoint[]>;
 }) {
   return (
     <div className="flex flex-col gap-3">
       <Allocation assets={assets} totalUsd={totalUsd} hidden={hidden} />
-      <TopGainers assets={assets} />
+      <TopGainers assets={assets} history={history} />
       <RecentActivity
         items={activity}
         loading={activityLoading}
@@ -139,7 +142,13 @@ function Allocation({
 }
 
 /** Best 24h movers among what the wallet actually holds. */
-function TopGainers({ assets }: { assets: PortfolioAsset[] }) {
+function TopGainers({
+  assets,
+  history,
+}: {
+  assets: PortfolioAsset[];
+  history: Record<string, PortfolioPricePoint[]>;
+}) {
   const gainers = assets
     .filter((a) => a.change24hPct != null)
     .sort((a, b) => b.change24hPct! - a.change24hPct!)
@@ -162,7 +171,9 @@ function TopGainers({ assets }: { assets: PortfolioAsset[] }) {
                   <span className="truncate font-semibold">{a.symbol}</span>
                   <span className="truncate text-[11px] text-muted">{a.name}</span>
                 </span>
-                {a.pool && <Sparkline pool={a.pool} up={up} className="h-5 w-14" />}
+                {a.pool && (
+                  <Sparkline data={history[a.pool.toLowerCase()]} up={up} className="h-5 w-14" />
+                )}
                 <span className="flex w-18 flex-col items-end">
                   <span
                     className={`text-xs font-semibold tabular-nums ${up ? "text-up" : "text-down"}`}

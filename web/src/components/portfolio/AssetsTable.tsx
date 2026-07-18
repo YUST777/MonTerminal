@@ -1,14 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchOhlcv } from "../../lib/gecko.ts";
 import { fmtAmountNum, fmtPct, fmtUsd } from "../../lib/format.ts";
 import type { PortfolioAsset } from "../../hooks/portfolio.ts";
+import type { PortfolioPricePoint } from "../../lib/portfolioHistory.ts";
 import { TokenIcon } from "../TokenIcon.tsx";
 import { usePersistentState } from "../../lib/persist.ts";
 
 const GRID =
   "grid grid-cols-[minmax(170px,1.8fr)_0.9fr_1fr_1fr_minmax(150px,1.3fr)_minmax(130px,1.2fr)] items-center gap-3";
-/** OHLCV is one gecko call per row — cap it well inside the free rate limit. */
 const MAX_SPARKLINES = 8;
 const COLLAPSED_ROWS = 6;
 
@@ -18,11 +16,13 @@ export function AssetsTable({
   totalUsd,
   loading,
   hidden,
+  history,
 }: {
   assets: PortfolioAsset[];
   totalUsd: number;
   loading: boolean;
   hidden: boolean;
+  history?: Record<string, PortfolioPricePoint[]>;
 }) {
   const [unit, setUnit] = usePersistentState<"$" | "%">("assets-unit", "$", (v) => v === "$" || v === "%");
   const [expanded, setExpanded] = usePersistentState<boolean>("assets-expanded", false);
@@ -147,7 +147,7 @@ export function AssetsTable({
             {/* 24h change: sparkline · dot · pct */}
             <span className="flex items-center gap-2.5">
               {a.pool && i < MAX_SPARKLINES ? (
-                <Sparkline pool={a.pool} up={up} />
+                <Sparkline data={history?.[a.pool.toLowerCase()]} up={up} />
               ) : (
                 <span className="w-16" />
               )}
@@ -194,24 +194,17 @@ export function AssetsTable({
   );
 }
 
-/** 24h close-price line from the asset's deepest pool (real OHLCV, no mock). */
 export function Sparkline({
-  pool,
+  data,
   up,
   className = "h-5 w-16",
 }: {
-  pool: string;
+  data: PortfolioPricePoint[] | undefined;
   up: boolean;
   className?: string;
 }) {
-  const { data } = useQuery({
-    queryKey: ["spark", pool],
-    staleTime: 600_000, // one fetch per pool per 10 min is plenty for a 24h line
-    retry: 0,
-    queryFn: () => fetchOhlcv(pool, "1h", 24),
-  });
   if (!data || data.length < 2) return <span className={className} />;
-  const closes = data.map((c) => c.close);
+  const closes = data.slice(-24).map((point) => point.close);
   const min = Math.min(...closes);
   const range = Math.max(...closes) - min || 1;
   const pts = closes

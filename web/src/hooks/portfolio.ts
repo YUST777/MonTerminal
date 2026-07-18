@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient } from "wagmi";
 import { erc20Abi, parseAbiItem, type Address } from "viem";
@@ -7,13 +7,13 @@ import { BRIDGE_TOKENS, NATIVE_TOKEN } from "../config/tokens.ts";
 import { fetchRelayTokens } from "../lib/relay.ts";
 import { fetchWalletTokens } from "../lib/blockscout.ts";
 import { fetchTokenPrices, type DsTokenPrice } from "../lib/dexscreener.ts";
+import { fetchSimplePrices, fetchTopPools, type TopPool } from "../lib/gecko.ts";
 import {
-  fetchOhlcv,
-  fetchSimplePrices,
-  fetchTopPools,
-  type Timeframe,
-  type TopPool,
-} from "../lib/gecko.ts";
+  fetchPortfolioHistory,
+  type PortfolioHistoryBundle,
+  type PortfolioHistoryWindow,
+  type PortfolioPricePoint,
+} from "../lib/portfolioHistory.ts";
 import { logClient } from "./orders.ts";
 
 /** One held token, priced. `address` is null for native MON. */
@@ -218,13 +218,17 @@ export interface HistoryPoint {
   bench: number | null;
 }
 
-const RANGE_CFG: Record<HistoryRange, { tf: Timeframe; limit: number }> = {
-  "1D": { tf: "15m", limit: 96 },
-  "1W": { tf: "1h", limit: 168 },
-  "1M": { tf: "4h", limit: 180 },
+const RANGE_CFG: Record<HistoryRange, { window: PortfolioHistoryWindow; points: number }> = {
+  "1D": { window: "week", points: 24 },
+  "1W": { window: "week", points: 168 },
+  "1M": { window: "month", points: 180 },
 };
-/** one OHLCV call per tracked asset — stay inside gecko's free rate limit */
 const HISTORY_ASSETS = 8;
+
+interface HoldingsHistoryResult {
+  points: HistoryPoint[];
+  assetSeries: Record<string, PortfolioPricePoint[]>;
+}
 
 /**
  * Value of the CURRENT holdings over time: each tracked asset's real USD
@@ -234,50 +238,38 @@ const HISTORY_ASSETS = 8;
  * real market data — not a fabricated portfolio history.
  */
 export function useHoldingsHistory(portfolio: Portfolio | undefined, range: HistoryRange) {
-  const { address } = useAccount();
   const qc = useQueryClient();
   const tracked = (portfolio?.assets ?? [])
     .filter((a) => a.pool && a.valueUsd > 0)
     .slice(0, HISTORY_ASSETS);
-  const trackedKey = tracked.map((a) => a.pool).join(",");
+  const trackedKey = tracked.map((asset) => asset.pool!.toLowerCase()).sort().join(",");
+  const config = RANGE_CFG[range];
 
   const query = useQuery({
-    queryKey: ["holdings-history", address, range, trackedKey],
+    queryKey: ["portfolio-history-batch", config.window, trackedKey],
     enabled: !!portfolio && tracked.length > 0,
-    staleTime: 300_000,
+    staleTime: 10 * 60_000,
     retry: 0,
-    placeholderData: keepPreviousData, // last range's line stays while the next loads
-    queryFn: () => buildHoldingsHistory(qc, portfolio!, tracked, range),
+    placeholderData: keepPreviousData,
+    queryFn: () => loadHistoryBundle(qc, tracked, config.window),
   });
 
-  // Warm the other ranges once the visible one lands — chip flips are then
-  // instant (and usually served straight from the OHLCV cache anyway).
-  useEffect(() => {
-    if (!query.data || !portfolio) return;
-    for (const r of (Object.keys(RANGE_CFG) as HistoryRange[])) {
-      if (r === range) continue;
-      qc.prefetchQuery({
-        queryKey: ["holdings-history", address, r, trackedKey],
-        staleTime: 300_000,
-        queryFn: () => buildHoldingsHistory(qc, portfolio, tracked, r),
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data, range, trackedKey]);
+  const result = useMemo<HoldingsHistoryResult | undefined>(() => {
+    if (!query.data || !portfolio) return undefined;
+    return {
+      points: buildHoldingsHistory(portfolio, tracked, range, query.data),
+      assetSeries: query.data.series,
+    };
+  }, [query.data, portfolio, trackedKey, range]);
 
-  return query;
+  return { ...query, data: result?.points, assetSeries: result?.assetSeries ?? {} };
 }
 
-async function buildHoldingsHistory(
+async function loadHistoryBundle(
   qc: ReturnType<typeof useQueryClient>,
-  portfolio: Portfolio,
   tracked: PortfolioAsset[],
-  range: HistoryRange,
-): Promise<HistoryPoint[]> {
-  const cfg = RANGE_CFG[range];
-  const flatUsd = portfolio.totalUsd - tracked.reduce((s, a) => s + a.valueUsd, 0);
-  // MON benchmark pool: cached top-pools if the home page fetched them,
-  // otherwise one cheap DexScreener call — never a 5-page gecko fetch.
+  window: PortfolioHistoryWindow,
+): Promise<PortfolioHistoryBundle & { benchPool: string | null }> {
   const wmon = ADDRESSES.WMON.toLowerCase();
   const cached = qc.getQueryData<TopPool[]>(["top-pools"]) ?? [];
   const benchPool =
@@ -285,24 +277,29 @@ async function buildHoldingsHistory(
     (await fetchTokenPrices([wmon]).catch(() => new Map<string, DsTokenPrice>())).get(wmon)
       ?.pool ??
     null;
+  const pools = [...new Set([...tracked.map((asset) => asset.pool!), ...(benchPool ? [benchPool] : [])])];
+  return { ...(await fetchPortfolioHistory(pools, window)), benchPool };
+}
 
-  const [series, bench] = await Promise.all([
-    Promise.all(
-      tracked.map((a) => fetchOhlcv(a.pool!, cfg.tf, cfg.limit, "usd").catch(() => [])),
-    ),
-    benchPool
-      ? fetchOhlcv(benchPool, cfg.tf, cfg.limit, "usd").catch(() => [])
-      : Promise.resolve([]),
-  ]);
+function buildHoldingsHistory(
+  portfolio: Portfolio,
+  tracked: PortfolioAsset[],
+  range: HistoryRange,
+  bundle: PortfolioHistoryBundle & { benchPool: string | null },
+): HistoryPoint[] {
+  const cfg = RANGE_CFG[range];
+  const flatUsd = portfolio.totalUsd - tracked.reduce((sum, asset) => sum + asset.valueUsd, 0);
+  const series = tracked.map((asset) => bundle.series[asset.pool!.toLowerCase()] ?? []);
+  const bench = bundle.benchPool ? (bundle.series[bundle.benchPool.toLowerCase()] ?? []) : [];
 
   const tsSet = new Set<number>();
-  for (const s of series) for (const c of s) tsSet.add(c.timestamp);
-  const timeline = [...tsSet].sort((x, y) => x - y);
+  for (const assetSeries of series) for (const point of assetSeries) tsSet.add(point.timestamp);
+  const timeline = [...tsSet].sort((x, y) => x - y).slice(-cfg.points);
   if (timeline.length < 2) return [];
 
-  const maps = series.map((s) => new Map(s.map((c) => [c.timestamp, c.close])));
-  const lastClose = series.map((s) => s[0]?.close ?? 0);
-  const benchMap = new Map(bench.map((c) => [c.timestamp, c.close]));
+  const maps = series.map((assetSeries) => new Map(assetSeries.map((point) => [point.timestamp, point.close])));
+  const lastClose = series.map((assetSeries) => assetSeries[0]?.close ?? 0);
+  const benchMap = new Map(bench.map((point) => [point.timestamp, point.close]));
   let benchLast = bench[0]?.close ?? 0;
   const bench0 = benchLast;
 
