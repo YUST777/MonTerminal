@@ -20,6 +20,24 @@ curl --fail --silent --show-error \
 grep -q "MonTerminal" "$TMP_DIR/token.html"
 echo "✓ SPA deep links"
 
+curl --fail --silent --show-error "$BASE_URL/docs/" > "$TMP_DIR/docs.html"
+grep -q "MonTerminal Documentation" "$TMP_DIR/docs.html"
+curl --fail --silent --show-error "$BASE_URL/docs/ai-agent-verification" > "$TMP_DIR/ai-docs.html"
+grep -q "Five-minute verification" "$TMP_DIR/ai-docs.html"
+echo "✓ static documentation routes"
+
+curl --fail --silent --show-error "$BASE_URL/sitemap" > "$TMP_DIR/sitemap.html"
+grep -q "Everything, mapped" "$TMP_DIR/sitemap.html"
+curl --fail --silent --show-error "$BASE_URL/sitemap.xml" > "$TMP_DIR/sitemap.xml"
+grep -q "/docs/ai-agent-verification" "$TMP_DIR/sitemap.xml"
+curl --fail --silent --show-error "$BASE_URL/sitemap.json" > "$TMP_DIR/sitemap.json"
+node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync(process.argv[1]));if(v.network?.chainId!==143||!v.proof?.limitBuyExecution)throw new Error("invalid machine sitemap")' "$TMP_DIR/sitemap.json"
+curl --fail --silent --show-error "$BASE_URL/llms.txt" > "$TMP_DIR/llms.txt"
+grep -q "AI verification guide" "$TMP_DIR/llms.txt"
+curl --fail --silent --show-error "$BASE_URL/.well-known/ai-site.json" > "$TMP_DIR/ai-site.json"
+node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync(process.argv[1]));if(v.network?.chainId!==143||!v.verificationGuide)throw new Error("invalid AI manifest")' "$TMP_DIR/ai-site.json"
+echo "✓ sitemap and AI discovery files"
+
 curl --fail --silent --show-error \
   -H 'content-type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \

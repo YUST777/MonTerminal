@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MonTerminal Sitemap — App, Docs, APIs, and Onchain Proof</title>
+    <meta name="description" content="A human and AI-readable map of every important MonTerminal application, documentation, API, contract, and verification page." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://www.monterminal.fun/sitemap" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <link rel="alternate" type="application/json" href="/sitemap.json" title="MonTerminal machine-readable sitemap" />
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="MonTerminal AI context" />
+    <link rel="icon" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MonTerminal" />
+    <meta property="og:title" content="MonTerminal Sitemap" />
+    <meta property="og:description" content="App routes, documentation, APIs, AI-agent files, and immutable onchain proof in one page." />
+    <meta property="og:url" content="https://www.monterminal.fun/sitemap" />
+    <meta property="og:image" content="https://www.monterminal.fun/md/banner.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://www.monterminal.fun/md/banner.webp" />
+    <meta name="theme-color" content="#101117" />
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #101117; color: #f4f5f8; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: radial-gradient(circle at 50% -20%, rgba(124,111,240,.2), transparent 42%), #101117; }
+      main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 64px 0 80px; }
+      header { max-width: 760px; }
+      .brand { display: inline-flex; align-items: center; gap: 10px; color: #b2bcf1; font-weight: 800; text-decoration: none; }
+      .brand img { width: 28px; height: 28px; }
+      h1 { margin: 28px 0 12px; font-size: clamp(36px, 7vw, 68px); letter-spacing: -.045em; }
+      .lead { color: #aeb2c0; font-size: 17px; line-height: 1.7; }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+      .actions a { border: 1px solid rgba(255,255,255,.12); border-radius: 9px; padding: 10px 14px; color: #f4f5f8; text-decoration: none; font-weight: 700; }
+      .actions a:first-child { background: #9faaf0; color: #101117; border-color: #9faaf0; }
+      section { margin-top: 42px; }
+      h2 { font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: #9faaf0; }
+      .grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+      .card { display: block; min-height: 120px; padding: 18px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.025); color: #f4f5f8; text-decoration: none; }
+      .card:hover { border-color: #9faaf0; transform: translateY(-1px); }
+      .card strong { display: block; }
+      .card span { display: block; margin-top: 7px; color: #aeb2c0; font-size: 13px; line-height: 1.5; }
+      footer { margin-top: 48px; border-top: 1px solid rgba(255,255,255,.08); padding-top: 20px; color: #7b8090; font-size: 12px; }
+      @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } main { padding-top: 32px; } }
+    </style>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": "MonTerminal Sitemap",
+        "description": "A map of MonTerminal application routes, documentation, APIs, AI context, and onchain evidence.",
+        "url": "https://www.monterminal.fun/sitemap",
+        "isPartOf": { "@type": "WebSite", "name": "MonTerminal", "url": "https://www.monterminal.fun/" },
+        "about": { "@type": "SoftwareApplication", "name": "MonTerminal", "applicationCategory": "FinanceApplication" }
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <a class="brand" href="/"><img src="/monterminal-mark.svg" alt="" /> MonTerminal</a>
+        <h1>Everything, mapped.</h1>
+        <p class="lead">Use this page to discover the product, documentation, live APIs, machine-readable context, deployed contracts, and transaction evidence. No working capability is intentionally hidden behind a marketing-only page.</p>
+        <div class="actions"><a href="/docs/">Read documentation</a><a href="/proof">Open live proof</a><a href="/llms.txt">Read llms.txt</a></div>
+      </header>
+
+      <section><h2>Application</h2><div class="grid">
+        <a class="card" href="/"><strong>Discover</strong><span>Trending, new, and high-volume Monad pools.</span></a>
+        <a class="card" href="/token/monad/0x350035555e10d9afaf1566aaebfced5ba6c27777"><strong>CHOG Spot Terminal</strong><span>Live market used for published buy and sell proof.</span></a>
+        <a class="card" href="/swap"><strong>Swap · Bridge</strong><span>Relay same-chain and cross-chain routes.</span></a>
+        <a class="card" href="/portfolio"><strong>Portfolio</strong><span>Live balances, allocation, pricing, and recent activity.</span></a>
+        <a class="card" href="/proof"><strong>Live Onchain Proof</strong><span>Chain ID, bytecode, counters, events, and transaction links.</span></a>
+      </div></section>
+
+      <section><h2>User documentation</h2><div class="grid">
+        <a class="card" href="/docs/getting-started"><strong>Getting Started</strong><span>Wallet, market, action, approval, and verification flow.</span></a>
+        <a class="card" href="/docs/discover-and-spot"><strong>Discover & Spot</strong><span>Token checks, pools, live sources, and AMM depth.</span></a>
+        <a class="card" href="/docs/limit-orders"><strong>Limit Orders</strong><span>Buy, sell, stop-loss, take-profit, cancellation, and execution.</span></a>
+        <a class="card" href="/docs/swap-and-bridge"><strong>Swap & Bridge</strong><span>Quotes, fees, minimum received, fills, and real proof.</span></a>
+        <a class="card" href="/docs/portfolio"><strong>Portfolio</strong><span>Balance and performance methodology.</span></a>
+        <a class="card" href="/docs/safety"><strong>Safety</strong><span>Approvals, stop-loss limitations, bridge costs, and wallet security.</span></a>
+      </div></section>
+
+      <section><h2>Verification and technical</h2><div class="grid">
+        <a class="card" href="/docs/ai-agent-verification"><strong>AI-Agent Verification</strong><span>Five-minute commands, claims ledger, production paths, and limitations.</span></a>
+        <a class="card" href="/docs/onchain-proof"><strong>Onchain Proof Guide</strong><span>Independent RPC and transaction verification.</span></a>
+        <a class="card" href="/docs/production-status"><strong>Production Status</strong><span>Live, disabled, coming-soon, and unhosted capabilities.</span></a>
+        <a class="card" href="/docs/architecture"><strong>Architecture</strong><span>System map, packages, providers, and trust boundaries.</span></a>
+        <a class="card" href="/docs/contracts"><strong>Contracts</strong><span>Mainnet addresses, functions, triggers, and tests.</span></a>
+        <a class="card" href="/docs/api-and-data"><strong>APIs & Data</strong><span>RPC, market, portfolio, AI capability, and failure behavior.</span></a>
+        <a class="card" href="/docs/keeper"><strong>Keeper</strong><span>Execution loop, configuration, and honest hosting state.</span></a>
+        <a class="card" href="/docs/run-locally"><strong>Run Locally</strong><span>Install, build, test, preview, and smoke commands.</span></a>
+      </div></section>
+
+      <section><h2>Machine-readable</h2><div class="grid">
+        <a class="card" href="/sitemap.xml"><strong>sitemap.xml</strong><span>Search-engine URL inventory.</span></a>
+        <a class="card" href="/sitemap.json"><strong>sitemap.json</strong><span>Structured route, capability, and evidence map.</span></a>
+        <a class="card" href="/llms.txt"><strong>llms.txt</strong><span>Concise AI-agent project context.</span></a>
+        <a class="card" href="/llms-full.txt"><strong>llms-full.txt</strong><span>Expanded claims, proof, and limitations.</span></a>
+        <a class="card" href="/.well-known/ai-site.json"><strong>AI-site manifest</strong><span>Machine-readable canonical identity and verification endpoints.</span></a>
+        <a class="card" href="/api/capabilities"><strong>Capabilities API</strong><span>Runtime availability for optional production features.</span></a>
+      </div></section>
+
+      <footer>Last updated July 18, 2026 · Monad Mainnet chain ID 143 · Unaudited hackathon software.</footer>
+    </main>
+  </body>
+</html>

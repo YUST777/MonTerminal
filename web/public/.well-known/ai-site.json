@@ -1,0 +1,16 @@
+{
+  "name": "MonTerminal",
+  "canonicalUrl": "https://www.monterminal.fun/",
+  "description": "Monad Mainnet trading terminal with live market data, wallet-backed onchain limit orders, swaps, bridges, portfolio views, and public transaction proof.",
+  "network": { "name": "Monad Mainnet", "chainId": 143, "caip2": "eip155:143" },
+  "documentation": "https://www.monterminal.fun/docs/",
+  "verificationGuide": "https://www.monterminal.fun/docs/ai-agent-verification",
+  "liveProof": "https://www.monterminal.fun/proof",
+  "repository": "https://github.com/YUST777/MonTerminal",
+  "llms": "https://www.monterminal.fun/llms.txt",
+  "llmsFull": "https://www.monterminal.fun/llms-full.txt",
+  "sitemap": "https://www.monterminal.fun/sitemap.xml",
+  "capabilities": "https://www.monterminal.fun/api/capabilities",
+  "claimsPolicy": "Only capabilities marked live or proven in the production-status documentation should be treated as production claims.",
+  "updatedAt": "2026-07-18"
+}

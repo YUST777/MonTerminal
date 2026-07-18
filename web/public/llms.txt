@@ -6,6 +6,9 @@ Canonical app: https://www.monterminal.fun/
 Documentation: https://www.monterminal.fun/docs/
 AI verification guide: https://www.monterminal.fun/docs/ai-agent-verification
 Live onchain proof: https://www.monterminal.fun/proof
+Human sitemap: https://www.monterminal.fun/sitemap
+XML sitemap: https://www.monterminal.fun/sitemap.xml
+JSON capability map: https://www.monterminal.fun/sitemap.json
 Repository: https://github.com/YUST777/MonTerminal
 
 ## Recommended pages

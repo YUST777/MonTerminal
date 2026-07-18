@@ -7,7 +7,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "pnpm --dir ../docs docs:build && vite",
     "build": "pnpm --dir ../docs docs:build && tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run"

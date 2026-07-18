@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0",
+  "updatedAt": "2026-07-18",
+  "canonicalOrigin": "https://www.monterminal.fun",
+  "network": { "name": "Monad Mainnet", "chainId": 143, "caip2": "eip155:143" },
+  "application": [
+    { "name": "Discover", "url": "/", "status": "live" },
+    { "name": "Spot", "urlTemplate": "/token/monad/{erc20Address}", "status": "live" },
+    { "name": "Swap and Bridge", "url": "/swap", "status": "live-and-proven" },
+    { "name": "Portfolio", "url": "/portfolio", "status": "live" },
+    { "name": "Onchain Proof", "url": "/proof", "status": "live" },
+    { "name": "Launchpad", "status": "coming-soon" },
+    { "name": "Rewards", "status": "coming-soon" }
+  ],
+  "documentation": {
+    "home": "/docs/",
+    "user": ["/docs/getting-started", "/docs/discover-and-spot", "/docs/limit-orders", "/docs/swap-and-bridge", "/docs/portfolio", "/docs/safety"],
+    "verification": ["/docs/onchain-proof", "/docs/ai-agent-verification", "/docs/production-status"],
+    "technical": ["/docs/architecture", "/docs/contracts", "/docs/api-and-data", "/docs/keeper", "/docs/run-locally"]
+  },
+  "machineReadable": ["/sitemap.xml", "/sitemap.json", "/llms.txt", "/llms-full.txt", "/.well-known/ai-site.json", "/api/capabilities"],
+  "proof": {
+    "page": "/proof",
+    "limitOrderBook": "0x07E94F44c89b648a36c7cd5408b52D76880857f7",
+    "minimumPublishedNextOrderId": 5,
+    "limitBuyExecution": "0x02ae018bdbaa76a112be1b2cbcad0d2124f4531efd7cb7ac032c7aa05d009342",
+    "limitSellExecution": "0x974a973f74773ee58ab7e5aa8fb06b545e4608b570db5b079d1bf0e27ba10f7a",
+    "relaySwap": "0x1189f0d7a0367702642187a025ef1e77c2f08a8966adcff1d63f0eae16cac12a",
+    "relayBridgeSource": "0x81b0581ab9f4be8f29f355405c3acd87dec59a644bab11b0bb4ddea05328cb8f",
+    "relayBridgeDestination": "0x060162ace868faaae38625b3e28e86daab380cf5a8686c71eb43a19d602cd33d"
+  },
+  "limitations": [
+    "Unaudited hackathon software",
+    "No continuously hosted keeper heartbeat is claimed",
+    "AI planner is disabled without a configured production model key",
+    "Small bridge routes can be economically inefficient"
+  ]
+}

@@ -6,6 +6,7 @@ import { MarketBar } from "./components/MarketBar.tsx";
 import { NetworkGuard } from "./components/NetworkGuard.tsx";
 import { OrderSidebar } from "./components/OrderSidebar.tsx";
 import { OrderBook } from "./components/OrderBook.tsx";
+import { RouteMetadata } from "./components/RouteMetadata.tsx";
 import { OrdersDock } from "./components/OrdersTables.tsx";
 import { Toasts } from "./components/Toasts.tsx";
 import { TokenHeader } from "./components/TokenHeader.tsx";
@@ -45,6 +46,7 @@ export default function App() {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg pb-[calc(4.25rem+env(safe-area-inset-bottom))] text-fg lg:pb-[calc(2rem+env(safe-area-inset-bottom))]">
+      <RouteMetadata />
       <NetworkGuard />
       <TopNav />
       {/* market selector + favorites live on every page — one-click hop to any coin */}

@@ -104,3 +104,17 @@ External RPC, indexer, Relay, and market-data failures can temporarily degrade c
 ## Full documentation
 
 https://www.monterminal.fun/docs/
+
+## Discovery files
+
+Human-readable page map:
+https://www.monterminal.fun/sitemap
+
+XML sitemap:
+https://www.monterminal.fun/sitemap.xml
+
+Machine-readable product map:
+https://www.monterminal.fun/sitemap.json
+
+AI-site manifest:
+https://www.monterminal.fun/.well-known/ai-site.json

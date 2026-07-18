@@ -1,5 +1,7 @@
 ---
 layout: home
+title: MonTerminal Documentation
+titleTemplate: false
 
 hero:
   name: MonTerminal

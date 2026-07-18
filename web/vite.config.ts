@@ -6,6 +6,27 @@ import { createOrderIntent } from "./server/orderIntentApi.ts";
 import { getPortfolioHistory } from "./server/portfolioHistoryApi.ts";
 import { forwardRpc, rpcUpstreams } from "./server/rpcGateway.ts";
 
+function staticPageRoutes(): Plugin {
+  return {
+    name: "static-page-routes",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (!req.url) return next();
+        const url = new URL(req.url, "http://localhost");
+        const route = url.pathname.replace(/\/$/, "") || "/";
+        if (route === "/docs") {
+          req.url = `/docs/index.html${url.search}`;
+        } else if (route.startsWith("/docs/") && !route.split("/").pop()?.includes(".")) {
+          req.url = `${route}.html${url.search}`;
+        } else if (route === "/sitemap") {
+          req.url = `/sitemap.html${url.search}`;
+        }
+        next();
+      });
+    },
+  };
+}
+
 function portfolioHistoryApi(): Plugin {
   return {
     name: "portfolio-history-api",
@@ -151,9 +172,37 @@ function smartOrderApi(env: Record<string, string>): Plugin {
   };
 }
 
+function capabilitiesApi(env: Record<string, string>): Plugin {
+  return {
+    name: "capabilities-api",
+    configureServer(server) {
+      server.middlewares.use("/api/capabilities", (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Cache-Control", "public, max-age=60");
+        if (req.method !== "GET") {
+          res.statusCode = 405;
+          res.setHeader("Allow", "GET");
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+        res.statusCode = 200;
+        res.end(JSON.stringify({
+          orderPlannerConfigured: Boolean(
+            process.env.FREEMODEL_API_KEY ||
+            process.env.OPENAI_API_KEY ||
+            env.FREEMODEL_API_KEY ||
+            env.OPENAI_API_KEY,
+          ),
+          keeperPubliclyVerified: false,
+        }));
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
-    plugins: [react(), tailwindcss(), portfolioHistoryApi(), rpcApi(env), geckoApi(), smartOrderApi(env)],
+    plugins: [staticPageRoutes(), react(), tailwindcss(), portfolioHistoryApi(), rpcApi(env), geckoApi(), smartOrderApi(env), capabilitiesApi(env)],
   };
 });
