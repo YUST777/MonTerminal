@@ -14,7 +14,7 @@
   ],
   "documentation": {
     "home": "/docs/",
-    "user": ["/docs/getting-started", "/docs/discover-and-spot", "/docs/limit-orders", "/docs/swap-and-bridge", "/docs/portfolio", "/docs/safety"],
+    "user": ["/docs/getting-started", "/docs/tutorials", "/docs/discover-and-spot", "/docs/limit-orders", "/docs/swap-and-bridge", "/docs/portfolio", "/docs/safety"],
     "verification": ["/docs/onchain-proof", "/docs/ai-agent-verification", "/docs/production-status"],
     "technical": ["/docs/architecture", "/docs/contracts", "/docs/api-and-data", "/docs/keeper", "/docs/run-locally"]
   },

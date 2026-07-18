@@ -3,6 +3,7 @@ import { defineConfig } from "vitepress";
 const descriptions: Record<string, string> = {
   "index.md": "Understand MonTerminal's live Monad markets, non-custodial onchain limit orders, swaps, bridges, portfolio views, and public proof.",
   "getting-started.md": "Connect a wallet, open a verified Monad market, trade safely, place an exact-approval order, and confirm the result onchain.",
+  "tutorials.md": "Three ordered MonTerminal walkthrough slots for the trading terminal, Swap and Bridge, and Portfolio, ready for final videos.",
   "safety.md": "Review MonTerminal's approval, stop-loss, bridge, malicious-token, wallet, and incident-response safety guidance.",
   "discover-and-spot.md": "Learn how MonTerminal discovers real Monad pools, verifies token contracts and factories, and renders live chart, trade, and AMM-depth data.",
   "limit-orders.md": "Learn the wallet-backed lifecycle for buy-the-dip, stop-loss, take-profit, ladder, cancellation, and permissionless execution orders.",
@@ -57,12 +58,12 @@ export default defineConfig({
       ["meta", { property: "og:title", content: title }],
       ["meta", { property: "og:description", content: description }],
       ["meta", { property: "og:url", content: canonical }],
-      ["meta", { property: "og:image", content: "https://www.monterminal.fun/md/banner.webp" }],
+      ["meta", { property: "og:image", content: "https://www.monterminal.fun/docs/monterminal-docs-og.svg" }],
       ["meta", { property: "og:image:alt", content: "MonTerminal documentation and onchain proof" }],
       ["meta", { name: "twitter:card", content: "summary_large_image" }],
       ["meta", { name: "twitter:title", content: title }],
       ["meta", { name: "twitter:description", content: description }],
-      ["meta", { name: "twitter:image", content: "https://www.monterminal.fun/md/banner.webp" }],
+      ["meta", { name: "twitter:image", content: "https://www.monterminal.fun/docs/monterminal-docs-og.svg" }],
       [
         "script",
         { type: "application/ld+json" },
@@ -94,6 +95,7 @@ export default defineConfig({
     },
     nav: [
       { text: "Guide", link: "/getting-started" },
+      { text: "Tutorials", link: "/tutorials" },
       { text: "Proof", link: "/onchain-proof" },
       { text: "AI Verification", link: "/ai-agent-verification" },
       { text: "Open App ↗", link: "https://www.monterminal.fun/" },
@@ -104,6 +106,7 @@ export default defineConfig({
         items: [
           { text: "What is MonTerminal?", link: "/" },
           { text: "Getting Started", link: "/getting-started" },
+          { text: "Tutorials", link: "/tutorials" },
           { text: "Safety", link: "/safety" },
         ],
       },

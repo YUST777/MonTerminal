@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/((?!api/|docs/|docs$|sitemap$|sitemap.xml$|sitemap.json$|llms.txt$|llms-full.txt$|robots.txt$|.well-known/).*)",
-      "destination": "/index.html"
+      "destination": "/index"
     }
   ],
   "functions": {

@@ -14,6 +14,7 @@ Repository: https://github.com/YUST777/MonTerminal
 ## Recommended pages
 
 - https://www.monterminal.fun/docs/getting-started
+- https://www.monterminal.fun/docs/tutorials
 - https://www.monterminal.fun/docs/limit-orders
 - https://www.monterminal.fun/docs/swap-and-bridge
 - https://www.monterminal.fun/docs/onchain-proof

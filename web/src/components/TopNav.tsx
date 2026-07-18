@@ -53,22 +53,13 @@ export function TopNav() {
           Spot
         </HeaderNavItem>
         <HeaderNavItem active={onBridge} onClick={() => navigate("/swap")}>
-          Swap · Bridge
+          Swap
         </HeaderNavItem>
         <HeaderNavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
           Portfolio
         </HeaderNavItem>
         <HeaderSoonItem>Launchpad</HeaderSoonItem>
         <HeaderSoonItem>Rewards</HeaderSoonItem>
-        <HeaderNavItem active={onProof} onClick={() => navigate("/proof")}>
-          Live Proof
-        </HeaderNavItem>
-        <a
-          href="/docs/"
-          className="rounded-md px-3 py-1.5 text-muted transition-colors hover:text-fg"
-        >
-          Docs
-        </a>
       </nav>
 
       {/* right cluster */}
@@ -103,7 +94,7 @@ export function TopNav() {
       </div>
     </header>
     <MobileNav onBridge={onBridge} onPair={onPair} onPortfolio={onPortfolio} pairPath={pairPath} />
-    <TerminalDock onBridge={onBridge} onPair={onPair} onPortfolio={onPortfolio} pairPath={pairPath} />
+    <TerminalDock onBridge={onBridge} onPair={onPair} onPortfolio={onPortfolio} onProof={onProof} pairPath={pairPath} />
     </>
   );
 }
@@ -148,11 +139,13 @@ function TerminalDock({
   onBridge,
   onPair,
   onPortfolio,
+  onProof,
   pairPath,
 }: {
   onBridge: boolean;
   onPair: boolean;
   onPortfolio: boolean;
+  onProof: boolean;
   pairPath: string;
 }) {
   const openAiOrders = () => {
@@ -189,6 +182,14 @@ function TerminalDock({
         </DockItem>
       </div>
 
+      <div className="ml-auto hidden h-8 shrink-0 items-stretch border-l border-line lg:flex">
+        <DockItem label="Docs" onClick={() => window.location.assign("/docs/")}>
+          <BookOpenText />
+        </DockItem>
+        <DockItem active={onProof} label="Proof" onClick={() => navigate("/proof")}>
+          <ShieldCheck />
+        </DockItem>
+      </div>
       <PriceTickers />
     </nav>
   );
@@ -273,7 +274,7 @@ function PriceTickers() {
   });
 
   return (
-    <div className="ml-auto hidden h-8 shrink-0 items-stretch border-l border-line min-[480px]:flex">
+    <div className="hidden h-8 shrink-0 items-stretch border-l border-line min-[480px]:flex">
       <PriceTicker symbol="MON" price={data?.monad ?? null} />
       <PriceTicker symbol="ETH" price={data?.ethereum ?? null} />
     </div>
