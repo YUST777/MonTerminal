@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
@@ -106,6 +107,7 @@ export function TokenSelectModal({
   const [query, setQuery] = useState("");
   const [chainQuery, setChainQuery] = useState("");
   const [activeChain, setActiveChain] = useState<BridgeChain>(chain);
+  const chainStripRef = useRef<HTMLDivElement>(null);
 
   const chains = useMemo(() => {
     const q = chainQuery.trim().toLowerCase();
@@ -237,29 +239,50 @@ export function TokenSelectModal({
             </div>
 
             {/* phone fallback: the rail collapses into a horizontal chain strip */}
-            <div className="mb-3 flex items-center gap-2 overflow-x-auto sm:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {BRIDGE_CHAINS.map((c) => {
-                const active = activeChain.id === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    title={chainLabel(c)}
-                    onClick={() => setActiveChain(c)}
-                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
-                      active
-                        ? "bg-brand/15"
-                        : "bg-overlay/40 opacity-60 hover:opacity-100"
-                    }`}
-                  >
-                    <ChainIcon chain={c} size="size-5" />
-                    {active && (
-                      <span className="whitespace-nowrap text-[13px] font-semibold">
-                        {chainLabel(c)}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+            <div className="relative mb-3 sm:hidden">
+              <button
+                type="button"
+                aria-label="Previous chains"
+                onClick={() => chainStripRef.current?.scrollBy({ left: -220, behavior: "smooth" })}
+                className="absolute inset-y-0 left-0 z-10 flex w-8 items-center justify-start bg-gradient-to-r from-raised via-raised/95 to-transparent text-muted"
+              >
+                <ChevronLeft className="size-5" />
+              </button>
+              <div
+                ref={chainStripRef}
+                className="flex w-full snap-x snap-proximity items-center gap-2 overflow-x-auto px-7 touch-pan-x overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
+              >
+                {BRIDGE_CHAINS.map((c) => {
+                  const active = activeChain.id === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      title={chainLabel(c)}
+                      onClick={() => setActiveChain(c)}
+                      className={`flex shrink-0 snap-start touch-pan-x items-center gap-2 rounded-xl px-3 py-2 transition-colors ${
+                        active
+                          ? "bg-brand/15 text-fg"
+                          : "bg-overlay/40 text-muted hover:bg-overlay hover:text-fg"
+                      }`}
+                    >
+                      <ChainIcon chain={c} size="size-5" />
+                      {active && (
+                        <span className="whitespace-nowrap text-[13px] font-semibold">
+                          {chainLabel(c)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                aria-label="Next chains"
+                onClick={() => chainStripRef.current?.scrollBy({ left: 220, behavior: "smooth" })}
+                className="absolute inset-y-0 right-0 z-10 flex w-8 items-center justify-end bg-gradient-to-l from-raised via-raised/95 to-transparent text-muted"
+              >
+                <ChevronRight className="size-5" />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--color-line)_transparent]">

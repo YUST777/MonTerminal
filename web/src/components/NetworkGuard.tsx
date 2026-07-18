@@ -30,12 +30,12 @@ export function NetworkGuard() {
 
   if (!wrong || onBridge) return null;
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-warn/40 bg-warn/10 px-4 py-2 text-sm text-warn">
-      <span>Wrong network — MonTerminal runs on Monad mainnet (143).</span>
+    <div className="flex items-center justify-between gap-2 border-b border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn sm:gap-3 sm:px-4 sm:text-sm">
+      <span className="min-w-0">Wrong network — switch to Monad mainnet (143).</span>
       <button
         onClick={() => switchChain({ chainId: monad.id })}
         disabled={isPending}
-        className="rounded border border-warn px-3 py-1 hover:bg-warn/20 disabled:opacity-50"
+        className="shrink-0 rounded border border-warn px-2 py-1 text-[11px] hover:bg-warn/20 disabled:opacity-50 sm:px-3 sm:text-sm"
       >
         {isPending ? "Switching…" : "Switch to Monad"}
       </button>

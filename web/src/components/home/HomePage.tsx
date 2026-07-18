@@ -42,13 +42,13 @@ export function HomePage() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col gap-2 px-3 py-2.5">
-      <div className="flex items-center gap-1">
+    <div className="flex h-full min-h-0 flex-col gap-2 px-2.5 py-2.5 sm:px-3">
+      <div className="flex shrink-0 items-center gap-1 overflow-x-auto pb-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`rounded-md px-2.5 py-1.5 text-[13px] font-semibold transition-colors ${
+            className={`shrink-0 rounded-md px-2.5 py-1.5 text-[13px] font-semibold transition-colors ${
               tab === t.id ? "bg-raised text-fg ring-1 ring-line" : "text-muted hover:text-fg"
             }`}
           >

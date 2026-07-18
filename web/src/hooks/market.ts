@@ -49,6 +49,12 @@ export interface MarketLookup {
   pool: PoolInfo;
 }
 
+export interface TokenLookup {
+  token: TokenMeta;
+  pool: PoolInfo | null;
+  marketNotice: string | null;
+}
+
 /** "capricorn-monad" → "Capricorn" — for human-readable lookup errors. */
 function prettyDex(id: string) {
   return id
@@ -194,7 +200,7 @@ async function marketForPool(client: Client, pool: Address): Promise<Market | nu
  * matched to a MonTerminal market by its on-chain factory. Last resort: scan
  * every market's factory for TOKEN/WMON and TOKEN/USDC pairs directly.
  */
-export async function lookupMarket(client: Client, address: Address): Promise<MarketLookup> {
+export async function lookupToken(client: Client, address: Address): Promise<TokenLookup> {
   // Not a contract at all → clearest possible message before any ABI call.
   const code = await client.getCode({ address });
   if (!code || code === "0x") {
@@ -227,20 +233,32 @@ export async function lookupMarket(client: Client, address: Address): Promise<Ma
       if (f.status !== "success") continue;
       const market = MARKETS.find((m) => m.factory.toLowerCase() === f.result.toLowerCase());
       if (market) {
-        return resolveMarketPool(client, token, candidates[i]!.address as Address, market);
+        const resolved = await resolveMarketPool(client, token, candidates[i]!.address as Address, market);
+        return { ...resolved, marketNotice: null };
       }
     }
   }
 
   const scanned = await factoryScan(client, address);
-  if (scanned) return resolveMarketPool(client, token, scanned.pool, scanned.market);
+  if (scanned) {
+    const resolved = await resolveMarketPool(client, token, scanned.pool, scanned.market);
+    return { ...resolved, marketNotice: null };
+  }
 
   const elsewhere = candidates[0];
-  throw new Error(
-    elsewhere
+  return {
+    token,
+    pool: null,
+    marketNotice: elsewhere
       ? `${token.symbol}'s pools (deepest: $${Math.round(elsewhere.liquidityUsd).toLocaleString()} on ${prettyDex(elsewhere.dexId)}) aren't on a factory MonTerminal trades on (${MARKETS.map((m) => m.label).join(", ")})`
       : `${token.symbol} has no pool on a supported DEX (${MARKETS.map((m) => m.label).join(", ")})`,
-  );
+  };
+}
+
+export async function lookupMarket(client: Client, address: Address): Promise<MarketLookup> {
+  const result = await lookupToken(client, address);
+  if (!result.pool) throw new Error(result.marketNotice ?? "No supported trading pool found");
+  return { token: result.token, pool: result.pool };
 }
 
 /**
@@ -258,15 +276,15 @@ export async function lookupTopPool(client: Client, p: TopPool): Promise<MarketL
   return resolveMarketPool(client, token, p.address as Address, market);
 }
 
-export function useMarketLookup(rawQuery: string) {
+export function useTokenLookup(rawQuery: string) {
   const client = usePublicClient({ chainId: monad.id });
   const query = rawQuery.trim();
   return useQuery({
-    queryKey: ["market-lookup", query.toLowerCase()],
+    queryKey: ["token-lookup", query.toLowerCase()],
     enabled: !!client && isAddress(query),
     staleTime: 60_000,
     retry: 1,
-    queryFn: () => lookupMarket(client!, query as Address),
+    queryFn: () => lookupToken(client!, query as Address),
   });
 }
 
@@ -370,11 +388,12 @@ export function useTokenMedia(token: Address | undefined) {
  * still resolving so the app can show a boot loader instead of flashing the
  * home page.
  */
-export function useUrlMarketSync(): boolean {
+export function useUrlMarketSync(): { resolving: boolean; error: string | null } {
   const client = usePublicClient({ chainId: monad.id });
-  const { token, setMarket } = useTerminal();
+  const { token, setMarket, setDetectedToken, clearMarket } = useTerminal();
   const path = usePathname();
   const inFlight = useRef<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   // A deep-linked path means a market is about to load — start in loading state.
   const [resolving, setResolving] = useState(() =>
     /^\/token\/monad\/0x[0-9a-fA-F]{40}$/.test(window.location.pathname),
@@ -388,25 +407,34 @@ export function useUrlMarketSync(): boolean {
     const m = path.match(/^\/token\/monad\/(0x[0-9a-fA-F]{40})$/);
     if (!m) {
       setResolving(false);
+      setError(null);
       return;
     }
     const addr = m[1]!.toLowerCase();
     const current = useTerminal.getState().token;
     if (current && current.address.toLowerCase() === addr) {
       setResolving(false);
+      setError(null);
       return;
     }
     if (inFlight.current === addr) return;
     inFlight.current = addr;
     setResolving(true);
-    lookupMarket(client, m[1] as Address)
-      .then((r) => setMarket(r.token, r.pool))
-      .catch(() => replacePath("/"))
+    setError(null);
+    lookupToken(client, m[1] as Address)
+      .then((r) => {
+        if (r.pool) setMarket(r.token, r.pool);
+        else setDetectedToken(r.token, r.marketNotice ?? "No supported trading pool found");
+      })
+      .catch((reason: unknown) => {
+        clearMarket();
+        setError(reason instanceof Error ? reason.message : "Unable to inspect this contract");
+      })
       .finally(() => {
         inFlight.current = null;
         setResolving(false);
       });
-  }, [client, path, setMarket]);
+  }, [client, path, setMarket, setDetectedToken, clearMarket]);
 
   useEffect(() => {
     if (!token) return;
@@ -415,7 +443,7 @@ export function useUrlMarketSync(): boolean {
     replacePath(`/token/monad/${token.address.toLowerCase()}`);
   }, [token]);
 
-  return resolving;
+  return { resolving, error };
 }
 
 /** Live pool tick + TOKEN price in the quote token from slot0 — same source the contract uses. */

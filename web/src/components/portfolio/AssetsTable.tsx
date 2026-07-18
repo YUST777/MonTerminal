@@ -44,8 +44,52 @@ export function AssetsTable({
           ))}
         </div>
       </div>
-      {/* 6 columns — one sideways-scrolling unit on narrow screens */}
-      <div className="overflow-x-auto">
+      <div className="lg:hidden">
+        {loading && <MobileSkeletonRows />}
+        {!loading && assets.length === 0 && (
+          <div className="px-4 py-6 text-xs text-muted">
+            No tokens found in this wallet on Monad — bridge something in to get started.
+          </div>
+        )}
+        {rows.map((a) => {
+          const pct = totalUsd > 0 ? (a.valueUsd / totalUsd) * 100 : 0;
+          const up = (a.change24hPct ?? 0) >= 0;
+          return (
+            <div key={a.address ?? "native"} className="border-b border-line/40 px-3 py-3 last:border-b-0">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <TokenIcon url={a.logo} symbol={a.symbol} size="size-9" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-semibold">{a.name}</span>
+                    <span className="truncate text-[11px] text-muted">{a.symbol}</span>
+                  </span>
+                </span>
+                <span className="flex shrink-0 flex-col items-end">
+                  <span className="text-sm font-semibold tabular-nums">
+                    {a.priceUsd == null ? "—" : hidden ? "•••" : unit === "$" ? fmtUsd(a.valueUsd) : `${pct.toFixed(1)}%`}
+                  </span>
+                  <span className={`text-[11px] font-medium tabular-nums ${
+                    a.change24hPct == null ? "text-muted" : up ? "text-up" : "text-down"
+                  }`}>
+                    {a.change24hPct != null ? `${fmtPct(a.change24hPct)} 24h` : "— 24h"}
+                  </span>
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-3 rounded-lg bg-bg/55 px-3 py-2.5">
+                <AssetMetric label="Balance" value={hidden ? "•••" : fmtAmountNum(a.amount)} />
+                <AssetMetric label="Price" value={a.priceUsd != null ? fmtUsd(a.priceUsd) : "—"} />
+                <AssetMetric label="Allocation" value={`${pct.toFixed(1)}%`} />
+                <span className="col-span-3 h-1 overflow-hidden rounded-full bg-overlay">
+                  <span className="block h-full rounded-full bg-brand" style={{ width: `${Math.min(100, pct)}%` }} />
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Dense six-column table for tablet and desktop widths. */}
+      <div className="hidden overflow-x-auto lg:block">
       <div className="min-w-[820px]">
       <div
         className={`${GRID} border-b border-line px-4 py-2 text-[11px] font-medium text-muted`}
@@ -212,6 +256,39 @@ function SkeletonRows({ count = 5 }: { count?: number }) {
               <span className="skeleton h-3 w-12 rounded" />
             </span>
           ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function AssetMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-[9px] uppercase tracking-wide text-muted">{label}</span>
+      <span className="truncate text-[11px] font-medium tabular-nums">{value}</span>
+    </span>
+  );
+}
+
+function MobileSkeletonRows({ count = 5 }: { count?: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="border-b border-line/40 px-3 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2.5">
+              <span className="skeleton size-9 rounded-full" />
+              <span className="flex flex-col gap-1.5">
+                <span className="skeleton h-3.5 w-24 rounded" />
+                <span className="skeleton h-2.5 w-12 rounded" />
+              </span>
+            </span>
+            <span className="skeleton h-4 w-16 rounded" />
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-3 rounded-lg bg-bg/55 px-3 py-2.5">
+            {Array.from({ length: 3 }, (_, j) => <span key={j} className="skeleton h-7 rounded" />)}
+          </div>
         </div>
       ))}
     </>

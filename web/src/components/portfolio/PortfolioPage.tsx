@@ -38,8 +38,8 @@ export function PortfolioPage() {
 
   if (!isConnected) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4">
-        <div className="text-lg font-semibold">Connect a wallet to see your portfolio</div>
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-5 text-center">
+        <div className="text-lg font-semibold leading-snug">Connect a wallet to see your portfolio</div>
         <div className="max-w-sm text-center text-xs text-muted">
           Balances, prices and activity are read live from Monad — nothing is stored.
         </div>
@@ -68,12 +68,12 @@ export function PortfolioPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start">
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-3 px-2.5 py-3 sm:px-4 sm:py-4 lg:flex-row lg:items-start">
         {/* ---- left column ---- */}
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {/* header card: value · live chart · chips + stats */}
-          <div className="rounded-xl border border-line bg-raised/40 p-5">
+          <div className="rounded-xl border border-line bg-raised/40 p-3.5 sm:p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
               <div className="shrink-0 xl:w-56">
                 <div className="flex items-center gap-2">
@@ -89,7 +89,7 @@ export function PortfolioPage() {
                 {portfolio.isLoading ? (
                   <span className="skeleton mt-2 block h-10 w-44 rounded" />
                 ) : (
-                  <div className="mt-1 text-[34px] font-bold leading-tight tabular-nums">
+                  <div className="mt-1 text-[28px] font-bold leading-tight tabular-nums sm:text-[34px]">
                     {hidden ? "••••••" : fmtUsd(p?.totalUsd ?? 0)}
                   </div>
                 )}

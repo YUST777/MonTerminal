@@ -6,7 +6,7 @@ import { useCancelOrders, useTokenBalance } from "../hooks/trade.ts";
 import { fmtAmount, fmtPct, fmtPrice, fmtUsd } from "../lib/format.ts";
 import { useTerminal } from "../state/terminal.ts";
 
-export function OrderSidebar() {
+export function OrderSidebar({ compact = false }: { compact?: boolean }) {
   const { token } = useTerminal();
 
   return (
@@ -19,8 +19,8 @@ export function OrderSidebar() {
         ) : (
           <>
             <TradePanel />
-            <PositionCard />
-            <MarketTriggers />
+            {!compact && <PositionCard />}
+            {!compact && <MarketTriggers />}
           </>
         )}
       </div>
@@ -68,10 +68,16 @@ function MarketTriggers() {
   if (!token || !pool) return null;
 
   const mine = (orders ?? []).filter(
-    (o) =>
-      o.status === STATUS.Open &&
-      o.tokenIn.toLowerCase() === token.address.toLowerCase() &&
-      o.tokenOut.toLowerCase() === pool.quote.address.toLowerCase(),
+    (o) => {
+      if (o.status !== STATUS.Open) return false;
+      const tokenIn = o.tokenIn.toLowerCase();
+      const tokenOut = o.tokenOut.toLowerCase();
+      const sell =
+        tokenIn === token.address.toLowerCase() && tokenOut === pool.quote.address.toLowerCase();
+      const buy =
+        tokenIn === pool.quote.address.toLowerCase() && tokenOut === token.address.toLowerCase();
+      return sell || buy;
+    },
   );
 
   return (
@@ -86,6 +92,7 @@ function MarketTriggers() {
         </div>
       )}
       {mine.map((o) => {
+        const isBuy = o.tokenIn.toLowerCase() === pool.quote.address.toLowerCase();
         const isSl = o.kind === KIND.StopLoss;
         const trig = tickToExecutionPrice(
           o.triggerTick,
@@ -100,11 +107,11 @@ function MarketTriggers() {
             key={orderKey(o)}
             className="flex items-center gap-1.5 border-t border-line/50 py-1 first:border-t-0"
           >
-            <span className={`w-4 font-bold ${isSl ? "text-down" : "text-up"}`}>
-              {isSl ? "SL" : "TP"}
+            <span className={`w-7 font-bold ${isBuy ? "text-up" : isSl ? "text-down" : "text-up"}`}>
+              {isBuy ? "BUY" : isSl ? "SL" : "TP"}
             </span>
             <span className="tabular-nums">
-              {fmtAmount(o.amountIn, token.decimals)} @ {fmtPrice(trig)}
+              {fmtAmount(o.amountIn, isBuy ? pool.quote.decimals : token.decimals)} {isBuy ? pool.quote.symbol : token.symbol} @ {fmtPrice(trig)}
             </span>
             <span className="tabular-nums text-muted">
               {distPct != null ? fmtPct(distPct) : ""}

@@ -25,7 +25,10 @@ interface TerminalState {
   /** Token being traded (quoted against the pool's quote token). */
   token: TokenMeta | null;
   pool: PoolInfo | null;
+  marketNotice: string | null;
   setMarket: (token: TokenMeta, pool: PoolInfo) => void;
+  setDetectedToken: (token: TokenMeta, marketNotice: string) => void;
+  clearMarket: () => void;
 }
 
 /** WMON meta is static — used for native-MON payout detection. */
@@ -39,11 +42,14 @@ export const WMON_META: TokenMeta = {
 export const useTerminal = create<TerminalState>((set) => ({
   token: null,
   pool: null,
+  marketNotice: null,
   setMarket: (token, pool) => {
     // Remember the last market across reloads. Only the address is read back
     // (TopNav's Spot deep link) — the pool is re-resolved fresh on navigation,
     // so nothing stale ever reaches the chart or the panels.
     savePersisted("last-market", { address: token.address, symbol: token.symbol });
-    set({ token, pool });
+    set({ token, pool, marketNotice: null });
   },
+  setDetectedToken: (token, marketNotice) => set({ token, pool: null, marketNotice }),
+  clearMarket: () => set({ token: null, pool: null, marketNotice: null }),
 }));

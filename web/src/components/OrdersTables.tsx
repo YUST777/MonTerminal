@@ -12,6 +12,23 @@ function kindLabel(o: UserOrder) {
   return o.kind === KIND.StopLoss ? "Stop-loss" : "Take-profit";
 }
 
+function currentMarketSide(
+  order: UserOrder,
+  token: ReturnType<typeof useTerminal.getState>["token"],
+  pool: ReturnType<typeof useTerminal.getState>["pool"],
+): "buy" | "sell" | null {
+  if (!token || !pool) return null;
+  const tokenIn = order.tokenIn.toLowerCase();
+  const tokenOut = order.tokenOut.toLowerCase();
+  if (tokenIn === token.address.toLowerCase() && tokenOut === pool.quote.address.toLowerCase()) {
+    return "sell";
+  }
+  if (tokenIn === pool.quote.address.toLowerCase() && tokenOut === token.address.toLowerCase()) {
+    return "buy";
+  }
+  return null;
+}
+
 export function OrdersDock() {
   const { data: orders, isLoading } = useUserOrders();
   const open = useMemo(() => orders?.filter((o) => o.status === STATUS.Open) ?? [], [orders]);
@@ -63,7 +80,7 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
             <tr>
               <Th>#</Th>
               <Th>Type</Th>
-              <Th>Sell</Th>
+              <Th>Amount</Th>
               <Th>Trigger px</Th>
               <Th>Distance</Th>
               <Th>Expiry</Th>
@@ -73,11 +90,8 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
           <tbody>
             {orders.map((o) => {
               const isSl = o.kind === KIND.StopLoss;
-              const isThisMarket =
-                token &&
-                pool &&
-                o.tokenIn.toLowerCase() === token.address.toLowerCase() &&
-                o.tokenOut.toLowerCase() === pool.quote.address.toLowerCase();
+              const side = currentMarketSide(o, token, pool);
+              const isThisMarket = side !== null;
               const trigPrice =
                 isThisMarket && token && pool
                   ? tickToExecutionPrice(
@@ -95,10 +109,14 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
               return (
                 <tr key={orderKey(o)} className="border-b border-line/50 hover:bg-raised/50">
                   <Td tone="muted">{o.orderId.toString()}</Td>
-                  <Td tone={isSl ? "down" : "up"}>{kindLabel(o)}</Td>
+                  <Td tone={side === "buy" ? "up" : isSl ? "down" : "up"}>
+                    {side === "buy" ? "Buy limit" : kindLabel(o)}
+                  </Td>
                   <Td>
-                    {token && isThisMarket
+                    {token && pool && side === "sell"
                       ? `${fmtAmount(o.amountIn, token.decimals)} ${token.symbol}`
+                      : pool && side === "buy"
+                        ? `${fmtAmount(o.amountIn, pool.quote.decimals)} ${pool.quote.symbol}`
                       : `${shortHash(o.tokenIn)}`}
                   </Td>
                   <Td>{trigPrice != null ? fmtPrice(trigPrice) : "—"}</Td>
@@ -135,7 +153,7 @@ export function OpenOrdersTable({ orders, loading }: { orders: UserOrder[]; load
 }
 
 export function OrderHistoryTable({ orders }: { orders: UserOrder[] }) {
-  const { pool } = useTerminal();
+  const { token, pool } = useTerminal();
 
   /** amountOut is denominated in tokenOut — resolve its decimals/symbol. */
   const received = (o: UserOrder) => {
@@ -144,6 +162,9 @@ export function OrderHistoryTable({ orders }: { orders: UserOrder[] }) {
     if (pool && out === pool.quote.address.toLowerCase()) {
       const native = pool.quote.symbol === "WMON";
       return `${fmtAmount(net, pool.quote.decimals)} ${native ? "MON" : pool.quote.symbol}`;
+    }
+    if (token && out === token.address.toLowerCase()) {
+      return `${fmtAmount(net, token.decimals)} ${token.symbol}`;
     }
     if (out === ADDRESSES.WMON.toLowerCase()) return `${fmtAmount(net, 18)} MON`;
     return `${fmtAmount(net, 18)} ${shortHash(o.tokenOut)}`;
@@ -167,10 +188,13 @@ export function OrderHistoryTable({ orders }: { orders: UserOrder[] }) {
           <tbody>
             {orders.map((o) => {
               const executed = o.status === STATUS.Executed;
+              const side = currentMarketSide(o, token, pool);
               return (
                 <tr key={orderKey(o)} className="border-b border-line/50 hover:bg-raised/50">
                   <Td tone="muted">{o.orderId.toString()}</Td>
-                  <Td tone={o.kind === KIND.StopLoss ? "down" : "up"}>{kindLabel(o)}</Td>
+                  <Td tone={side === "buy" ? "up" : o.kind === KIND.StopLoss ? "down" : "up"}>
+                    {side === "buy" ? "Buy limit" : kindLabel(o)}
+                  </Td>
                   <Td tone={executed ? "up" : "muted"}>{executed ? "Executed" : "Cancelled"}</Td>
                   <Td>{executed && o.amountOut !== undefined ? received(o) : "—"}</Td>
                   <Td>

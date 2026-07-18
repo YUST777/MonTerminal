@@ -60,6 +60,7 @@ const transports = Object.fromEntries(
 // Browser-curated Monad list: rpc2 rate-limits hard and rpc3 times out,
 // so only the two healthy endpoints ship to the client.
 transports[monad.id] = fallback([
+  http("/api/rpc"),
   http("https://rpc.monad.xyz"),
   http("https://rpc1.monad.xyz"),
 ]);

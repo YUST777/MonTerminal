@@ -4,12 +4,13 @@ import { isAddress } from "viem";
 import { MARKETS, monad } from "@monolimit/shared";
 import {
   lookupTopPool,
-  useMarketLookup,
   useOnchainIcons,
   usePairsMedia,
+  useTokenLookup,
   useTokenMedia,
   useTopPools,
   type MarketLookup,
+  type TokenLookup,
 } from "../hooks/market.ts";
 import type { TopPool } from "../lib/gecko.ts";
 import { fmtPct, fmtUsd } from "../lib/format.ts";
@@ -80,21 +81,29 @@ export function MarketBar() {
   };
 
   return (
-    <div className="flex h-9 items-center gap-2.5 border-b border-line bg-bg px-3">
+    <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line bg-bg px-2 sm:gap-2.5 sm:px-3">
       {/* current market pill */}
-      <div ref={ref} className="relative">
+      <div ref={ref} className="relative min-w-0 shrink-0">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1.5 rounded-md bg-raised px-2 py-1 text-xs font-semibold ring-1 ring-line hover:ring-brand"
+          className="flex max-w-[13rem] items-center gap-1.5 rounded-md bg-raised px-2 py-1 text-xs font-semibold ring-1 ring-line hover:ring-brand sm:max-w-none"
         >
           {token && pool ? (
             <>
               <TokenIcon url={tokenMedia?.icon} symbol={token.symbol} size="size-4" />
-              <span>
+              <span className="truncate">
                 {token.symbol}-{pool.quote.symbol}
               </span>
-              <span className="rounded bg-overlay px-1 py-px text-[9px] font-medium uppercase tracking-wide text-muted">
+              <span className="hidden shrink-0 rounded bg-overlay px-1 py-px text-[9px] font-medium uppercase tracking-wide text-muted sm:inline">
                 {pool.market.label}
+              </span>
+            </>
+          ) : token ? (
+            <>
+              <TokenIcon url={tokenMedia?.icon} symbol={token.symbol} size="size-4" />
+              <span className="truncate">{token.symbol}</span>
+              <span className="hidden shrink-0 rounded bg-warn/10 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-warn sm:inline">
+                Detected
               </span>
             </>
           ) : (
@@ -105,21 +114,21 @@ export function MarketBar() {
         {open && <MarketDropdown onPicked={() => setOpen(false)} />}
       </div>
 
-      <span className="h-4 w-px bg-line" aria-hidden />
+      <span className="h-4 w-px shrink-0 bg-line" aria-hidden />
 
       {/* favorites */}
       <button
         onClick={toggleFav}
-        disabled={!token}
+        disabled={!token || !pool}
         title={isFav ? "Remove from favorites" : "Add to favorites"}
         className={`text-sm leading-none ${isFav ? "text-warn" : "text-muted hover:text-warn"} disabled:opacity-30`}
       >
         {isFav ? "★" : "☆"}
       </button>
       {favs.length === 0 ? (
-        <span className="text-xs text-muted">Star markets you trade often</span>
+        <span className="min-w-0 truncate text-[11px] text-muted sm:text-xs">Star markets you trade often</span>
       ) : (
-        <div className="flex items-center gap-1 overflow-x-auto">
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {favs.map((f) => {
             const m = favToMarket(f);
             if (!m) return null;
@@ -163,11 +172,12 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
   const [resolving, setResolving] = useState<string | null>(null);
   const client = usePublicClient({ chainId: monad.id });
   const isAddr = isAddress(query.trim());
-  const { data: lookup, isFetching, error } = useMarketLookup(query);
+  const { data: lookup, isFetching, error } = useTokenLookup(query);
   const { data: pools, isLoading } = useTopPools(true);
   const { data: media } = usePairsMedia(pools?.map((p) => p.address));
   const { data: chainIcons } = useOnchainIcons(pools?.map((p) => p.baseToken));
   const setMarket = useTerminal((s) => s.setMarket);
+  const setDetectedToken = useTerminal((s) => s.setDetectedToken);
   const push = useToasts((s) => s.push);
 
   const rows = useMemo(() => {
@@ -207,6 +217,18 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
     onPicked();
   };
 
+  const selectToken = (r: TokenLookup) => {
+    if (r.pool) {
+      select({ token: r.token, pool: r.pool });
+      return;
+    }
+    setDetectedToken(r.token, r.marketNotice ?? "No supported trading pool found");
+    navigate(`/token/monad/${r.token.address.toLowerCase()}`);
+    push("info", `${r.token.symbol} detected on Monad — no supported trading route yet`);
+    setQuery("");
+    onPicked();
+  };
+
   const pickRow = async (p: TopPool) => {
     if (!client || resolving) return;
     setResolving(p.address);
@@ -219,11 +241,11 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
     }
   };
 
-  const grid = "grid grid-cols-[1.5fr_1fr_0.9fr_1fr_1fr] items-center gap-2";
+  const grid = "grid grid-cols-[minmax(0,1.45fr)_0.85fr_0.75fr] items-center gap-2 sm:grid-cols-[1.5fr_1fr_0.9fr_1fr_1fr]";
 
   return (
     /* mobile: pinned full-width under the nav+market bars; sm+: anchored dropdown */
-    <div className="fixed inset-x-2 top-[5.25rem] z-30 rounded-md border border-line bg-overlay shadow-2xl sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-1 sm:w-[38rem] sm:max-w-[calc(100vw-1.5rem)]">
+    <div className="absolute left-0 top-full z-30 mt-1 flex h-[calc(100dvh-11rem)] w-[calc(100vw-1rem)] max-w-[38rem] flex-col overflow-hidden rounded-md border border-line bg-overlay shadow-2xl sm:h-[min(34.5rem,calc(100dvh-10.5rem))] sm:w-[38rem] sm:max-w-[calc(100vw-1.5rem)] lg:h-[min(34.5rem,calc(100dvh-7rem))]">
       <div className="px-3 pt-2.5 text-sm font-semibold">Select market</div>
       <div className="p-2">
         <input
@@ -237,12 +259,12 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
       </div>
 
       {/* DEX filter tabs */}
-      <div className="flex items-center gap-0.5 border-b border-line px-2 pb-1.5">
+      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-line px-2 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {[{ dexId: "all", label: "All" }, ...MARKETS].map((m) => (
           <button
             key={m.dexId}
             onClick={() => setDexTab(m.dexId)}
-            className={`rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+            className={`shrink-0 rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
               dexTab === m.dexId ? "bg-raised text-fg" : "text-muted hover:text-fg"
             }`}
           >
@@ -258,7 +280,7 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
           {error && <div className="px-2 py-1.5 text-down">{(error as Error).message}</div>}
           {lookup && (
             <button
-              onClick={() => select(lookup)}
+              onClick={() => selectToken(lookup)}
               className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-raised"
             >
               <span className="flex items-center gap-2">
@@ -266,80 +288,97 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
                 <span className="font-semibold">{lookup.token.symbol}</span>
                 <span className="text-muted">{lookup.token.name}</span>
               </span>
-              <span className="text-muted">
-                {lookup.pool.market.label} · /{lookup.pool.quote.symbol} ·{" "}
-                {lookup.pool.fee / 10_000}%
-              </span>
+              {lookup.pool ? (
+                <span className="text-muted">
+                  {lookup.pool.market.label} · /{lookup.pool.quote.symbol} ·{" "}
+                  {lookup.pool.fee / 10_000}%
+                </span>
+              ) : (
+                <span className="rounded bg-warn/10 px-1.5 py-0.5 font-medium text-warn">
+                  Contract detected
+                </span>
+              )}
             </button>
+          )}
+          {lookup && !lookup.pool && (
+            <div className="px-2 pb-1.5 text-[11px] leading-relaxed text-muted">
+              {lookup.marketNotice}
+            </div>
           )}
         </div>
       )}
 
-      {/* volume-ranked market table — scrolls sideways on narrow screens */}
-      <div className="overflow-x-auto">
-      <div className="min-w-[34rem]">
-      <div className={`${grid} px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted`}>
-        <span>Market</span>
-        {(["price", "change", "volume", "liquidity"] as SortKey[]).map((k) => (
-          <button
-            key={k}
-            onClick={() => toggleSort(k)}
-            className={`text-right hover:text-fg ${sort.key === k ? "text-fg" : ""}`}
+      {/* Mobile keeps the decision-critical columns; wider screens show full depth. */}
+      <div className="min-h-0 flex-1 overflow-x-auto">
+        <div className="flex h-full min-w-0 flex-col sm:min-w-[34rem]">
+          <div
+            className={`${grid} shrink-0 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted`}
           >
-            {k === "change" ? "24h" : SORT_LABEL[k]}{" "}
-            {sort.key === k ? (sort.dir === -1 ? "↓" : "↑") : "⇅"}
-          </button>
-        ))}
-      </div>
-      <div className="max-h-96 overflow-y-auto pb-1">
-        {isLoading && <div className="px-2.5 py-2 text-xs text-muted">Loading markets…</div>}
-        {rows.map((p) => {
-          const chg = p.change24hPct;
-          const market = MARKETS.find((m) => m.dexId === p.dexId);
-          return (
-            <button
-              key={p.address}
-              onClick={() => pickRow(p)}
-              disabled={!!resolving}
-              className={`${grid} w-full px-3 py-2 text-left text-[13px] hover:bg-raised disabled:opacity-60`}
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                <TokenIcon
-                  url={
-                    media?.get(p.address.toLowerCase()) ??
-                    p.imageUrl ??
-                    chainIcons?.get(p.baseToken.toLowerCase())
-                  }
-                  symbol={p.baseSymbol}
-                  size="size-4"
-                />
-                <span className="truncate font-semibold">
-                  {p.baseSymbol}-{p.quoteSymbol}
-                </span>
-                <span className="rounded bg-raised px-1 text-[8px] font-medium uppercase text-muted">
-                  {market?.label.split(" ")[0]}
-                </span>
-              </span>
-              <span className="text-right tabular-nums">
-                {resolving === p.address ? "…" : p.priceUsd != null ? fmtUsd(p.priceUsd) : "—"}
-              </span>
-              <span
-                className={`text-right tabular-nums ${chg == null ? "text-muted" : chg >= 0 ? "text-up" : "text-down"}`}
+            <span>Market</span>
+            {(["price", "change", "volume", "liquidity"] as SortKey[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => toggleSort(k)}
+                className={`${k === "volume" || k === "liquidity" ? "hidden sm:block" : ""} text-right hover:text-fg ${sort.key === k ? "text-fg" : ""}`}
               >
-                {chg != null ? fmtPct(chg) : "—"}
-              </span>
-              <span className="text-right tabular-nums text-muted">{fmtUsd(p.volume24hUsd)}</span>
-              <span className="text-right tabular-nums text-muted">{fmtUsd(p.reserveUsd)}</span>
-            </button>
-          );
-        })}
-        {!isLoading && rows.length === 0 && !isAddr && (
-          <div className="px-2.5 py-2 text-xs text-muted">
-            No match — paste the token's 0x address to load it directly.
+                {k === "change" ? "24h" : SORT_LABEL[k]}{" "}
+                {sort.key === k ? (sort.dir === -1 ? "↓" : "↑") : "⇅"}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
-      </div>
+          <div className="min-h-0 flex-1 overflow-y-auto pb-1">
+            {isLoading && <div className="px-2.5 py-2 text-xs text-muted">Loading markets…</div>}
+            {rows.map((p) => {
+              const chg = p.change24hPct;
+              const market = MARKETS.find((m) => m.dexId === p.dexId);
+              return (
+                <button
+                  key={p.address}
+                  onClick={() => pickRow(p)}
+                  disabled={!!resolving}
+                  className={`${grid} w-full px-3 py-2 text-left text-[13px] hover:bg-raised disabled:opacity-60`}
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <TokenIcon
+                      url={
+                        media?.get(p.address.toLowerCase()) ??
+                        p.imageUrl ??
+                        chainIcons?.get(p.baseToken.toLowerCase())
+                      }
+                      symbol={p.baseSymbol}
+                      size="size-4"
+                    />
+                    <span className="truncate font-semibold">
+                      {p.baseSymbol}-{p.quoteSymbol}
+                    </span>
+                    <span className="rounded bg-raised px-1 text-[8px] font-medium uppercase text-muted">
+                      {market?.label.split(" ")[0]}
+                    </span>
+                  </span>
+                  <span className="text-right tabular-nums">
+                    {resolving === p.address ? "…" : p.priceUsd != null ? fmtUsd(p.priceUsd) : "—"}
+                  </span>
+                  <span
+                    className={`text-right tabular-nums ${chg == null ? "text-muted" : chg >= 0 ? "text-up" : "text-down"}`}
+                  >
+                    {chg != null ? fmtPct(chg) : "—"}
+                  </span>
+                  <span className="hidden text-right tabular-nums text-muted sm:block">
+                    {fmtUsd(p.volume24hUsd)}
+                  </span>
+                  <span className="hidden text-right tabular-nums text-muted sm:block">
+                    {fmtUsd(p.reserveUsd)}
+                  </span>
+                </button>
+              );
+            })}
+            {!isLoading && rows.length === 0 && !isAddr && (
+              <div className="px-2.5 py-2 text-xs text-muted">
+                No match — paste the token's 0x address to load it directly.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       <div className="flex items-center justify-between border-t border-line px-2.5 py-1 text-[10px] text-muted">
         <span>{rows.length} markets</span>

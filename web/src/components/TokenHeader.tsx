@@ -25,7 +25,26 @@ export function TokenHeader() {
   const { data: stats } = usePoolStats(pool);
   const { data: media } = useTokenMedia(token?.address);
 
-  if (!token || !pool) return null;
+  if (!token) return null;
+  if (!pool) {
+    return (
+      <div className="flex h-9 shrink-0 items-center gap-2 overflow-x-auto border-b border-line bg-bg px-2 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-8 sm:px-3">
+        <span className="text-sm font-semibold">{token.name}</span>
+        <span className="rounded bg-up/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-up">
+          Contract detected
+        </span>
+        <InlineStat label="Decimals" value={String(token.decimals)} />
+        <a
+          href={`https://monadscan.com/token/${token.address}`}
+          target="_blank"
+          rel="noreferrer"
+          className="ml-auto shrink-0 text-[11px] text-muted hover:text-brand"
+        >
+          {shortAddr(token.address)} ↗
+        </a>
+      </div>
+    );
+  }
   const chg = stats?.change24hPct;
   const up = (chg ?? 0) >= 0;
   const links = (media?.links ?? [])
@@ -33,8 +52,8 @@ export function TokenHeader() {
     .filter((l): l is { url: string; host: string } => l.host !== null);
 
   return (
-    <div className="flex h-8 items-center gap-3 overflow-x-auto border-b border-line bg-bg px-3 whitespace-nowrap">
-      <span className="text-[15px] font-semibold tabular-nums">
+    <div className="flex h-9 shrink-0 items-center gap-2 overflow-x-auto border-b border-line bg-bg px-2 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:h-8 sm:gap-3 sm:px-3">
+      <span className="shrink-0 text-[15px] font-semibold tabular-nums">
         {stats?.priceUsd != null ? fmtUsd(stats.priceUsd) : "…"}
       </span>
       <span className="flex items-baseline gap-1 text-xs">
@@ -46,29 +65,31 @@ export function TokenHeader() {
 
       <Divider />
       <InlineStat label={`Price ${pool.quote.symbol}`} value={live ? fmtPrice(live.price) : "—"} />
-      <Divider />
-      <InlineStat
-        label="24h Vol"
-        value={stats?.volume24hUsd != null ? fmtUsd(stats.volume24hUsd) : "—"}
-      />
-      <Divider />
-      <InlineStat
-        label="Liquidity"
-        value={stats?.liquidityUsd != null ? fmtUsd(stats.liquidityUsd) : "—"}
-      />
-      <Divider />
-      <InlineStat label="FDV" value={stats?.fdvUsd != null ? fmtUsd(stats.fdvUsd) : "—"} />
-      <Divider />
-      <InlineStat
-        label="Pool"
-        value={`${pool.market.label} ${pool.fee / 10_000}%`}
-      />
+      <span className="contents max-sm:hidden">
+        <Divider />
+        <InlineStat
+          label="24h Vol"
+          value={stats?.volume24hUsd != null ? fmtUsd(stats.volume24hUsd) : "—"}
+        />
+        <Divider />
+        <InlineStat
+          label="Liquidity"
+          value={stats?.liquidityUsd != null ? fmtUsd(stats.liquidityUsd) : "—"}
+        />
+        <Divider />
+        <InlineStat label="FDV" value={stats?.fdvUsd != null ? fmtUsd(stats.fdvUsd) : "—"} />
+        <Divider />
+        <InlineStat
+          label="Pool"
+          value={`${pool.market.label} ${pool.fee / 10_000}%`}
+        />
+      </span>
 
       <a
         href={`https://monadscan.com/token/${token.address}`}
         target="_blank"
         rel="noreferrer"
-        className="ml-auto text-[11px] text-muted hover:text-brand"
+        className="ml-auto shrink-0 text-[11px] text-muted hover:text-brand"
       >
         {shortAddr(token.address)} ↗
       </a>
@@ -79,7 +100,7 @@ export function TokenHeader() {
           target="_blank"
           rel="noreferrer"
           title={l.url}
-          className="text-[11px] text-muted hover:text-brand"
+          className="hidden shrink-0 text-[11px] text-muted hover:text-brand sm:inline"
         >
           {l.host} ↗
         </a>

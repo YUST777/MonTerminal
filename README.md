@@ -14,7 +14,7 @@ Built for the buildanything.so **Spark** Monad hackathon. 100% original code.
 
 ### Buy / Sell limit orders — set it once, sleep peacefully
 
-The heart of MonTerminal: on-chain take-profits, stop-losses and buy-the-dip limits with **no custody** — tokens stay in your wallet until the trigger fires. Pick a price (or tap a ±% chip), slide the amount, place. Sell orders auto-detect stop-loss vs take-profit from where your price sits vs market; the **Auto tab** places GMGN-style ladders ("at 2× sell half, 25% at 5×, ride the rest") atomically in one tx. Execution is permissionless — the keeper bot, MEV searchers, or anyone else fills triggered orders and earns the maker-set fee, so orders execute 24/7 even while you sleep.
+The heart of MonTerminal: on-chain take-profits, stop-losses and buy-the-dip limits with **no custody** — tokens stay in your wallet until the trigger fires. Pick a price (or tap a ±% chip), slide the amount, place. Sell orders auto-detect stop-loss vs take-profit from where your price sits vs market. The **AI tab** accepts plans such as *"sell 20% at $0.0003, 30% at $0.0004, and buy 10% if it drops 50%"*, converts them into schema-validated buy/sell intents, and shows the exact on-chain triggers before the wallet signs one atomic `placeOrders` transaction. The model can draft but cannot access the wallet, calculate calldata, or execute anything; deterministic code owns price/tick conversion, allocation checks, approvals and contract parameters. Execution is permissionless — the keeper bot, MEV searchers, or anyone else fills triggered orders and earns the maker-set fee, so orders execute 24/7 even while you sleep.
 
 ![New pairs catcher](web/public/md/new_pairs.webp)
 
@@ -118,6 +118,10 @@ pnpm web
 ```
 
 `.env` is never committed — see `.env.example`.
+
+The browser sends Monad JSON-RPC through the project-owned `POST /api/rpc` gateway. Set `RPC_URLS` to a comma-separated list of HTTPS endpoints; the gateway validates JSON-RPC calls, caps batch/body size, and fails over to the next upstream when one is unavailable. `MONAD_RPC_URL` remains the single-endpoint fallback for Forge and deployments.
+
+Pasting any Monad contract first checks bytecode and reads ERC-20 metadata through that gateway. Every valid ERC-20 opens a contract page. Trading controls only unlock when an actual pool exists on a supported factory—MonTerminal never fabricates liquidity, prices, or an executable route.
 
 ### Deploy
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowLeftRight, BriefcaseBusiness, ChartLine, Compass } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { MARKETS } from "@monolimit/shared";
 import { shortAddr } from "../lib/format.ts";
@@ -7,20 +8,25 @@ import { navigate, usePathname } from "../lib/router.ts";
 import { useTerminal } from "../state/terminal.ts";
 
 const EXPLORER = "https://monadscan.com/address/";
+const DEFAULT_PAIR_PATH = "/token/monad/0x350035555e10d9afaf1566aaebfced5ba6c27777";
 
-/** Terminal-style top bar: logo · nav tabs · wallet / settings. */
+/** Terminal-style header on desktop, compact app bar on phones. */
 export function TopNav() {
   const path = usePathname();
   const token = useTerminal((s) => s.token);
   const onBridge = path === "/bridge" || path === "/swap";
   const onPortfolio = path === "/portfolio";
+  const onPair = path.startsWith("/token/");
   // "Spot" returns to the selected market — or, after a reload, the last one
   // this browser traded (deep-linking re-resolves the pool fresh) — else home.
   const lastMarket = token ?? loadPersisted<{ address: string }>("last-market");
-  const spotPath = lastMarket ? `/token/monad/${lastMarket.address.toLowerCase()}` : "/";
+  const pairPath = lastMarket
+    ? `/token/monad/${lastMarket.address.toLowerCase()}`
+    : DEFAULT_PAIR_PATH;
 
   return (
-    <header className="flex h-14 items-center gap-2.5 border-b border-line bg-bg px-3 sm:gap-6 sm:px-5">
+    <>
+    <header className="relative z-40 flex h-13 shrink-0 items-center gap-2 border-b border-line bg-bg px-3 sm:h-14 sm:gap-6 sm:px-5">
       {/* logo — always goes home */}
       <button onClick={() => navigate("/")} className="flex shrink-0 items-baseline">
         <span className="text-[18px] font-bold tracking-tight">
@@ -29,8 +35,8 @@ export function TopNav() {
       </button>
 
       {/* primary nav — scrolls sideways instead of wrapping on tiny screens */}
-      <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-[14px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <NavItem active={!onBridge && !onPortfolio} onClick={() => navigate(spotPath)}>
+      <nav className="hidden min-w-0 items-center gap-1 overflow-x-auto text-[14px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex">
+        <NavItem active={!onBridge && !onPortfolio} onClick={() => navigate(pairPath)}>
           Spot
         </NavItem>
         <NavItem active={onBridge} onClick={() => navigate("/swap")}>
@@ -53,18 +59,19 @@ export function TopNav() {
                 onClick={
                   !connected ? openConnectModal : chain?.unsupported ? openChainModal : openAccountModal
                 }
-                className="flex items-center gap-2 whitespace-nowrap rounded-md border border-line bg-raised px-3.5 py-1.5 text-[13px] font-semibold hover:border-brand"
+                className="flex max-w-[9rem] items-center gap-2 whitespace-nowrap rounded-md border border-line bg-raised px-2.5 py-1.5 text-[12px] font-semibold hover:border-brand sm:max-w-[13rem] sm:px-3.5 sm:text-[13px]"
               >
                 <WalletGlyph />
                 {!connected ? (
                   <>
-                    <span className="sm:hidden">Connect</span>
+                    <span className="min-[360px]:hidden">Connect</span>
+                    <span className="hidden min-[360px]:inline sm:hidden">Connect</span>
                     <span className="hidden sm:inline">Connect Wallet</span>
                   </>
                 ) : chain?.unsupported ? (
                   "Wrong network"
                 ) : (
-                  (account.displayName ?? shortAddr(account.address))
+                  <span className="truncate">{account.displayName ?? shortAddr(account.address)}</span>
                 )}
               </button>
             );
@@ -73,6 +80,69 @@ export function TopNav() {
         <SettingsMenu />
       </div>
     </header>
+    <MobileNav onBridge={onBridge} onPair={onPair} onPortfolio={onPortfolio} pairPath={pairPath} />
+    </>
+  );
+}
+
+function MobileNav({
+  onBridge,
+  onPair,
+  onPortfolio,
+  pairPath,
+}: {
+  onBridge: boolean;
+  onPair: boolean;
+  onPortfolio: boolean;
+  pairPath: string;
+}) {
+  return (
+    <nav
+      aria-label="Primary navigation"
+      className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto grid h-14 max-w-[32rem] grid-cols-4 gap-0.5 rounded-[1.4rem] border border-line/90 bg-bg/95 p-1 shadow-[0_12px_32px_rgba(0,0,0,0.34)] backdrop-blur-xl lg:hidden"
+    >
+      <MobileNavItem active={!onBridge && !onPair && !onPortfolio} label="Discover" onClick={() => navigate("/")}>
+        <Compass />
+      </MobileNavItem>
+      <MobileNavItem active={onBridge} label="Swap" onClick={() => navigate("/swap")}>
+        <ArrowLeftRight />
+      </MobileNavItem>
+      <MobileNavItem active={onPair} label="Pair" onClick={() => navigate(pairPath)}>
+        <ChartLine />
+      </MobileNavItem>
+      <MobileNavItem active={onPortfolio} label="Portfolio" onClick={() => navigate("/portfolio")}>
+        <BriefcaseBusiness />
+      </MobileNavItem>
+    </nav>
+  );
+}
+
+function MobileNavItem({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-[1.05rem] text-[10px] font-semibold transition-colors duration-150 ${
+        active
+          ? "bg-brand/10 text-brand"
+          : "text-muted hover:bg-overlay/45 hover:text-fg"
+      }`}
+    >
+      <span className="flex size-5 items-center justify-center">
+        {children}
+      </span>
+      <span>{label}</span>
+    </button>
   );
 }
 
