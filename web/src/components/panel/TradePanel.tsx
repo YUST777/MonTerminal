@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { usePersistentState } from "../../lib/persist.ts";
 import { BuyLimit } from "./BuyLimit.tsx";
 import { BuyMarket } from "./BuyMarket.tsx";
@@ -26,6 +27,15 @@ const TAB_TITLE: Record<Tab, string> = {
 export function TradePanel() {
   const [tab, setTab] = usePersistentState<Tab>("panel-tab", "Buy", (v) => TABS.includes(v));
   const [limitSide, setLimitSide] = usePersistentState<LimitSide>("panel-limit-side", "Buy", (v) => LIMIT_SIDES.includes(v));
+
+  useEffect(() => {
+    const openTab = (event: Event) => {
+      const next = (event as CustomEvent<unknown>).detail;
+      if (typeof next === "string" && TABS.includes(next as Tab)) setTab(next as Tab);
+    };
+    window.addEventListener("monterminal:trade-tab", openTab);
+    return () => window.removeEventListener("monterminal:trade-tab", openTab);
+  }, [setTab]);
 
   return (
     <div className="p-2 pb-0">

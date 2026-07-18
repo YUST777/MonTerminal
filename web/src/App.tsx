@@ -52,7 +52,7 @@ export default function App() {
   const onTerminal = path.startsWith("/token/") && (!!token || !!marketError);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-fg lg:pb-0">
+    <div className="flex h-dvh flex-col overflow-hidden bg-bg pb-[calc(2.5rem+env(safe-area-inset-bottom))] text-fg sm:pb-[calc(2rem+env(safe-area-inset-bottom))]">
       <NetworkGuard />
       <TopNav />
       {/* market selector + favorites live on every page — one-click hop to any coin */}

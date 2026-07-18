@@ -1,16 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftRight, BriefcaseBusiness, ChartLine, Compass } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Bot,
+  BriefcaseBusiness,
+  ChartLine,
+  Compass,
+} from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useQuery } from "@tanstack/react-query";
 import { MARKETS } from "@monolimit/shared";
 import { shortAddr } from "../lib/format.ts";
-import { loadPersisted } from "../lib/persist.ts";
+import { loadPersisted, savePersisted } from "../lib/persist.ts";
 import { navigate, usePathname } from "../lib/router.ts";
 import { useTerminal } from "../state/terminal.ts";
 
 const EXPLORER = "https://monadscan.com/address/";
 const DEFAULT_PAIR_PATH = "/token/monad/0x350035555e10d9afaf1566aaebfced5ba6c27777";
 
-/** Terminal-style header on desktop, compact app bar on phones. */
+/** Compact identity/wallet bar with the primary product dock fixed below. */
 export function TopNav() {
   const path = usePathname();
   const token = useTerminal((s) => s.token);
@@ -34,19 +41,19 @@ export function TopNav() {
         </span>
       </button>
 
-      {/* primary nav — scrolls sideways instead of wrapping on tiny screens */}
       <nav className="hidden min-w-0 items-center gap-1 overflow-x-auto text-[14px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex">
-        <NavItem active={!onBridge && !onPortfolio} onClick={() => navigate(pairPath)}>
+        <HeaderNavItem active={!onBridge && !onPair && !onPortfolio} onClick={() => navigate("/")}>
+          Discover
+        </HeaderNavItem>
+        <HeaderNavItem active={onPair} onClick={() => navigate(pairPath)}>
           Spot
-        </NavItem>
-        <NavItem active={onBridge} onClick={() => navigate("/swap")}>
+        </HeaderNavItem>
+        <HeaderNavItem active={onBridge} onClick={() => navigate("/swap")}>
           Swap · Bridge
-        </NavItem>
-        <NavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
+        </HeaderNavItem>
+        <HeaderNavItem active={onPortfolio} onClick={() => navigate("/portfolio")}>
           Portfolio
-        </NavItem>
-        <NavItem soon>Launchpad</NavItem>
-        <NavItem soon>Rewards</NavItem>
+        </HeaderNavItem>
       </nav>
 
       {/* right cluster */}
@@ -80,12 +87,33 @@ export function TopNav() {
         <SettingsMenu />
       </div>
     </header>
-    <MobileNav onBridge={onBridge} onPair={onPair} onPortfolio={onPortfolio} pairPath={pairPath} />
+    <TerminalDock onBridge={onBridge} onPair={onPair} onPortfolio={onPortfolio} pairPath={pairPath} />
     </>
   );
 }
 
-function MobileNav({
+function HeaderNavItem({
+  children,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-md px-3 py-1.5 transition-colors ${
+        active ? "bg-overlay font-semibold text-fg" : "text-muted hover:text-fg"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TerminalDock({
   onBridge,
   onPair,
   onPortfolio,
@@ -96,85 +124,134 @@ function MobileNav({
   onPortfolio: boolean;
   pairPath: string;
 }) {
+  const openAiOrders = () => {
+    savePersisted("panel-tab", "AI");
+    navigate(pairPath);
+    window.dispatchEvent(new CustomEvent("monterminal:trade-tab", { detail: "AI" }));
+  };
+
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 mx-auto grid h-14 max-w-[32rem] grid-cols-4 gap-0.5 rounded-[1.4rem] border border-line/90 bg-bg/95 p-1 shadow-[0_12px_32px_rgba(0,0,0,0.34)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 flex h-[calc(2.5rem+env(safe-area-inset-bottom))] items-start border-t border-line bg-[#101117]/96 px-0.5 shadow-[0_-6px_18px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:h-[calc(2rem+env(safe-area-inset-bottom))]"
     >
-      <MobileNavItem active={!onBridge && !onPair && !onPortfolio} label="Discover" onClick={() => navigate("/")}>
-        <Compass />
-      </MobileNavItem>
-      <MobileNavItem active={onBridge} label="Swap" onClick={() => navigate("/swap")}>
-        <ArrowLeftRight />
-      </MobileNavItem>
-      <MobileNavItem active={onPair} label="Pair" onClick={() => navigate(pairPath)}>
-        <ChartLine />
-      </MobileNavItem>
-      <MobileNavItem active={onPortfolio} label="Portfolio" onClick={() => navigate("/portfolio")}>
-        <BriefcaseBusiness />
-      </MobileNavItem>
+      <div className="hidden h-8 shrink-0 items-center gap-1.5 border-r border-line px-2.5 text-[9px] font-semibold text-up lg:flex">
+        <span className="size-1.5 rounded-full bg-up shadow-[0_0_8px_rgba(119,199,175,0.8)]" />
+        Monad live
+      </div>
+
+      <div className="grid h-10 min-w-0 flex-1 grid-cols-5 sm:h-8 sm:flex sm:flex-none">
+        <DockItem active={!onBridge && !onPair && !onPortfolio} label="Discover" onClick={() => navigate("/")}>
+          <Compass />
+        </DockItem>
+        <DockItem active={onPair} label="Trade" onClick={() => navigate(pairPath)}>
+          <ChartLine />
+        </DockItem>
+        <DockItem active={onBridge} label="Swap" onClick={() => navigate("/swap")}>
+          <ArrowLeftRight />
+        </DockItem>
+        <DockItem active={onPortfolio} label="PnL" onClick={() => navigate("/portfolio")}>
+          <BriefcaseBusiness />
+        </DockItem>
+        <DockItem label="AI Orders" onClick={openAiOrders} accent>
+          <Bot />
+        </DockItem>
+      </div>
+
+      <PriceTickers />
     </nav>
   );
 }
 
-function MobileNavItem({
-  active,
-  label,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+interface FooterPrice {
+  usd: number;
+  change: number;
+}
+
+function PriceTickers() {
+  const { data } = useQuery({
+    queryKey: ["footer-prices"],
+    refetchInterval: 60_000,
+    staleTime: 45_000,
+    queryFn: async () => {
+      const response = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,monad&vs_currencies=usd&include_24hr_change=true",
+      );
+      if (!response.ok) throw new Error(`CoinGecko ${response.status}`);
+      const json = (await response.json()) as Record<
+        string,
+        { usd?: number; usd_24h_change?: number }
+      >;
+      const read = (id: string): FooterPrice | null => {
+        const usd = Number(json[id]?.usd);
+        const change = Number(json[id]?.usd_24h_change);
+        return Number.isFinite(usd)
+          ? { usd, change: Number.isFinite(change) ? change : 0 }
+          : null;
+      };
+      return { monad: read("monad"), ethereum: read("ethereum") };
+    },
+  });
+
   return (
-    <button
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      className={`flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-[1.05rem] text-[10px] font-semibold transition-colors duration-150 ${
-        active
-          ? "bg-brand/10 text-brand"
-          : "text-muted hover:bg-overlay/45 hover:text-fg"
-      }`}
-    >
-      <span className="flex size-5 items-center justify-center">
-        {children}
-      </span>
-      <span>{label}</span>
-    </button>
+    <div className="ml-auto hidden h-8 shrink-0 items-stretch border-l border-line min-[480px]:flex">
+      <PriceTicker symbol="MON" price={data?.monad ?? null} />
+      <PriceTicker symbol="ETH" price={data?.ethereum ?? null} />
+    </div>
   );
 }
 
-function NavItem({
-  children,
+function PriceTicker({ symbol, price }: { symbol: string; price: FooterPrice | null }) {
+  const value =
+    price == null
+      ? "—"
+      : price.usd >= 1
+        ? `$${price.usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+        : `$${price.usd.toLocaleString(undefined, { maximumSignificantDigits: 5 })}`;
+
+  return (
+    <div className="flex min-w-[5.7rem] items-center justify-center gap-1.5 border-r border-line px-2 text-[9px] tabular-nums last:border-r-0">
+      <span className="font-semibold text-fg">{symbol}</span>
+      <span className="text-muted">{value}</span>
+      {price && (
+        <span className={price.change >= 0 ? "text-up" : "text-down"}>
+          {price.change >= 0 ? "+" : ""}{price.change.toFixed(1)}%
+        </span>
+      )}
+    </div>
+  );
+}
+
+function DockItem({
   active,
-  soon,
+  label,
   onClick,
+  accent = false,
+  children,
 }: {
-  children: React.ReactNode;
   active?: boolean;
-  soon?: boolean;
+  label: string;
   onClick?: () => void;
+  accent?: boolean;
+  children: React.ReactNode;
 }) {
-  if (soon) {
-    return (
-      <span
-        title="Coming soon"
-        className="cursor-not-allowed rounded px-2 py-1 text-muted/50 select-none"
-      >
-        {children}
-      </span>
-    );
-  }
   return (
     <button
       onClick={onClick}
-      className={`rounded-md px-3 py-1.5 transition-colors ${
-        active ? "bg-overlay font-semibold text-fg" : "text-muted hover:text-fg"
+      title={label}
+      aria-current={active ? "page" : undefined}
+      className={`relative flex h-10 min-w-0 items-center justify-center gap-1 px-1.5 text-[9px] font-semibold transition-colors duration-150 sm:h-8 sm:min-w-[4.7rem] sm:px-2 ${
+        active
+          ? "bg-brand/[0.08] text-brand after:absolute after:inset-x-2 after:top-0 after:h-px after:bg-brand"
+          : accent
+            ? "text-brand hover:bg-brand/[0.08]"
+            : "text-muted hover:bg-overlay/45 hover:text-fg"
       }`}
     >
-      {children}
+      <span className="flex size-3.5 shrink-0 items-center justify-center [&>svg]:size-3.5">
+        {children}
+      </span>
+      <span className="truncate max-[380px]:text-[9px]">{label}</span>
     </button>
   );
 }
