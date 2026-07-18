@@ -21,3 +21,4 @@ lcov.info
 *.log
 .vite/
 .vercel/
+web/public/docs/

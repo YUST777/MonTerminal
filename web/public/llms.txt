@@ -1,0 +1,41 @@
+# MonTerminal
+
+> Non-custodial onchain limit orders, live meme-coin trading, swaps, bridges, and portfolio views on Monad Mainnet.
+
+Canonical app: https://www.monterminal.fun/
+Documentation: https://www.monterminal.fun/docs/
+AI verification guide: https://www.monterminal.fun/docs/ai-agent-verification
+Live onchain proof: https://www.monterminal.fun/proof
+Repository: https://github.com/YUST777/MonTerminal
+
+## Recommended pages
+
+- https://www.monterminal.fun/docs/getting-started
+- https://www.monterminal.fun/docs/limit-orders
+- https://www.monterminal.fun/docs/swap-and-bridge
+- https://www.monterminal.fun/docs/onchain-proof
+- https://www.monterminal.fun/docs/production-status
+- https://www.monterminal.fun/docs/architecture
+- https://www.monterminal.fun/docs/contracts
+- https://www.monterminal.fun/docs/api-and-data
+- https://www.monterminal.fun/docs/keeper
+- https://www.monterminal.fun/docs/safety
+
+## Verification summary
+
+- Monad Mainnet chain ID: 143 (0x8f)
+- Capricorn LimitOrderBook: 0x07E94F44c89b648a36c7cd5408b52D76880857f7
+- Published state: nextOrderId() = 5 or greater
+- Real limit-buy and limit-sell placement, cancellation, and execution receipts are linked in the proof guide.
+- Real Relay swap: 5 MON to 0.107470 USDC on Monad.
+- Real Relay bridge: 2 MON on Monad to 0.020909 USDC on Base.
+
+## Honest limitations
+
+- Unaudited hackathon software.
+- No continuously hosted keeper heartbeat is currently claimed.
+- AI planner is disabled when no production model key is configured.
+- Launchpad and Rewards are labelled Coming Soon.
+- Small bridge routes can be economically inefficient.
+
+For expanded evidence, read https://www.monterminal.fun/llms-full.txt

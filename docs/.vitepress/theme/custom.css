@@ -1,0 +1,98 @@
+:root {
+  --vp-c-brand-1: #9faaf0;
+  --vp-c-brand-2: #b2bcf1;
+  --vp-c-brand-3: #7f8bd5;
+  --vp-c-brand-soft: rgba(159, 170, 240, 0.14);
+  --vp-c-bg: #101117;
+  --vp-c-bg-alt: #15171f;
+  --vp-c-bg-elv: #1b1e28;
+  --vp-c-bg-soft: #181a23;
+  --vp-c-divider: rgba(255, 255, 255, 0.09);
+  --vp-c-border: rgba(255, 255, 255, 0.12);
+  --vp-c-text-1: #f4f5f8;
+  --vp-c-text-2: #aeb2c0;
+  --vp-c-text-3: #7b8090;
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #d7dcff 10%, #9faaf0 50%, #806cf3 100%);
+  --vp-home-hero-image-background-image: radial-gradient(circle, rgba(159, 170, 240, 0.34), transparent 62%);
+  --vp-home-hero-image-filter: blur(42px);
+  --vp-code-block-bg: #0b0c11;
+}
+
+html:not(.dark) {
+  color-scheme: dark;
+}
+
+.VPNavBarTitle .logo {
+  width: 24px;
+  height: 24px;
+}
+
+.VPHomeHero .image-src {
+  width: 190px;
+  height: 190px;
+}
+
+.VPFeature {
+  border-color: var(--vp-c-divider);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+}
+
+.proof-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.proof-card {
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1) !important;
+  text-decoration: none !important;
+}
+
+.proof-card:hover {
+  border-color: var(--vp-c-brand-1);
+}
+
+.proof-card small {
+  display: block;
+  margin-top: 4px;
+  color: var(--vp-c-text-2);
+}
+
+.status-live,
+.status-limited,
+.status-disabled {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.status-live {
+  background: rgba(119, 199, 175, 0.14);
+  color: #77c7af;
+}
+
+.status-limited {
+  background: rgba(229, 184, 107, 0.14);
+  color: #e5b86b;
+}
+
+.status-disabled {
+  background: rgba(174, 178, 192, 0.12);
+  color: #aeb2c0;
+}
+
+@media (max-width: 640px) {
+  .proof-grid {
+    grid-template-columns: 1fr;
+  }
+}

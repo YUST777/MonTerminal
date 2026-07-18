@@ -2,6 +2,7 @@ packages:
   - packages/*
   - keeper
   - web
+  - docs
 allowBuilds:
   bufferutil: true
   esbuild: true

@@ -102,6 +102,7 @@ All Sourcify-verified.
 ## Live proof
 
 - App: https://www.monterminal.fun/
+- Documentation: https://www.monterminal.fun/docs/
 - In-product RPC proof: https://www.monterminal.fun/proof
 - The proof page reads chain ID, current block, deployed bytecode, `nextOrderId()`, and recent order events directly from Monad RPC.
 - Limit buy: [`OrderPlaced #1`](https://monadscan.com/tx/0xbdd61d4a6015c2bd0fd9e5fbfa96695fd6fc1800352fe6c8e62e83db96a367d1) → [`OrderCancelled #1`](https://monadscan.com/tx/0x00aa718897662145a631cfbb068ba4c917fadc1554b9333923a4cb9f89c7b91f) → [`OrderPlaced #2`](https://monadscan.com/tx/0xcf4bfee4607aed19787d6797fd316d2eba0d71c957ab153a7319e846da63dbb1) → [`OrderExecuted #2`](https://monadscan.com/tx/0x02ae018bdbaa76a112be1b2cbcad0d2124f4531efd7cb7ac032c7aa05d009342).

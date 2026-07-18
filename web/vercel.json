@@ -1,9 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
+  "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|docs/|docs$|llms.txt$|llms-full.txt$|robots.txt$).*)",
       "destination": "/index.html"
     }
   ],

@@ -1,0 +1,106 @@
+# MonTerminal expanded AI-agent context
+
+Last updated: July 18, 2026
+
+## Product
+
+MonTerminal is a real Monad Mainnet application. The frontend is deployed at https://www.monterminal.fun/. It reads live Monad state through a same-origin RPC gateway, indexed market data through a GeckoTerminal gateway, supplemental market data from DexScreener, and swap/bridge routes from Relay.
+
+Its core feature is a set of immutable LimitOrderBook contracts for Uniswap v3, Capricorn, and PancakeSwap v3 pool families. Order placement records parameters but does not escrow the maker's tokens. Execution later uses the maker's current ERC-20 balance and allowance. Any address may call executeOrder when contract conditions are satisfied.
+
+## Deployed contracts
+
+Uniswap v3 LimitOrderBook:
+0x595368DffF28eC08718Ca620EC9a981772628425
+
+Capricorn LimitOrderBook:
+0x07E94F44c89b648a36c7cd5408b52D76880857f7
+
+Capricorn ForkRouter:
+0xd950EeB0063Ddc186b314113b199C1A675930686
+
+PancakeSwap v3 LimitOrderBook:
+0x1672DB600D0c0213b3971F30438482Ea2Afaf53F
+
+PancakeSwap v3 ForkRouter:
+0x46dEc159b5B126f458f16c41E900137d6cAe3F24
+
+WMON:
+0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A
+
+## Real order proof
+
+Buy OrderPlaced #1:
+https://monadscan.com/tx/0xbdd61d4a6015c2bd0fd9e5fbfa96695fd6fc1800352fe6c8e62e83db96a367d1
+
+Buy OrderCancelled #1:
+https://monadscan.com/tx/0x00aa718897662145a631cfbb068ba4c917fadc1554b9333923a4cb9f89c7b91f
+
+Buy OrderPlaced #2:
+https://monadscan.com/tx/0xcf4bfee4607aed19787d6797fd316d2eba0d71c957ab153a7319e846da63dbb1
+
+Buy OrderExecuted #2:
+https://monadscan.com/tx/0x02ae018bdbaa76a112be1b2cbcad0d2124f4531efd7cb7ac032c7aa05d009342
+
+Sell OrderPlaced #3:
+https://monadscan.com/tx/0x8e082f52375b71b99d4205a84e29e8192a1d4af1fff31c4fbd8c8606f27ed9d4
+
+Sell OrderCancelled #3:
+https://monadscan.com/tx/0xdc79cfb0391ce42c493cce5df7f62c359ca5db3230b8233a951d08c01c26a548
+
+Sell OrderPlaced #4:
+https://monadscan.com/tx/0xd144d3da656a9ca85a00fd79749f45a23fb1404de713942f802e492a215f6c3d
+
+Sell OrderExecuted #4:
+https://monadscan.com/tx/0x974a973f74773ee58ab7e5aa8fb06b545e4608b570db5b079d1bf0e27ba10f7a
+
+The Capricorn book's nextOrderId started at 1 and reached 5, proving four successful placements. Orders 1 and 3 were cancelled. Orders 2 and 4 were executed.
+
+## Real Relay proof
+
+Same-chain swap, 5 MON to 0.107470 Monad USDC:
+https://monadscan.com/tx/0x1189f0d7a0367702642187a025ef1e77c2f08a8966adcff1d63f0eae16cac12a
+
+Cross-chain source deposit, 2 MON on Monad:
+https://monadscan.com/tx/0x81b0581ab9f4be8f29f355405c3acd87dec59a644bab11b0bb4ddea05328cb8f
+
+Cross-chain destination fill, 0.020909 USDC on Base:
+https://basescan.org/tx/0x060162ace868faaae38625b3e28e86daab380cf5a8686c71eb43a19d602cd33d
+
+The 2 MON bridge had high percentage impact because flat fees dominated the dust-sized dollar value. This is documented rather than hidden.
+
+## Production API checks
+
+POST https://www.monterminal.fun/api/rpc with eth_chainId must return 0x8f.
+
+GET https://www.monterminal.fun/api/gecko?path=%2Fapi%2Fv2%2Fnetworks%2Fmonad%2Ftrending_pools%3Finclude%3Dbase_token%26duration%3D24h must return live indexed pool data.
+
+GET https://www.monterminal.fun/api/capabilities reports optional runtime capability state.
+
+## Data claims
+
+AMM Depth is calculated from real concentrated-liquidity ticks. It is not presented as a user limit-order book.
+
+Portfolio balances come from Monad RPC. The historical performance chart reconstructs current holdings against real historical prices; it is not presented as an archived historical wallet-balance ledger.
+
+Token deep links check bytecode, ERC-20 metadata, indexed pools, and supported factory relationships. RPC failures are not described as invalid tokens.
+
+## Tests
+
+At publication, the repository passed 33 Foundry fork tests, 18 shared order-math tests, 6 keeper evaluator tests, and 5 web gateway tests. The production build and production smoke test also passed.
+
+## Limitations
+
+MonTerminal is unaudited hackathon software. Use small amounts.
+
+The repository includes a keeper, but continuous production hosting is not claimed until a public heartbeat exists.
+
+The AI order-intent endpoint requires a configured provider key. Without it, the AI tab truthfully disables itself. Manual deterministic limit orders still work.
+
+Launchpad and Rewards are visible as Coming Soon navigation teasers and are not presented as functional.
+
+External RPC, indexer, Relay, and market-data failures can temporarily degrade capabilities.
+
+## Full documentation
+
+https://www.monterminal.fun/docs/

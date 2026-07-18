@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeftRight,
+  BookOpenText,
   Bot,
   BriefcaseBusiness,
   ChartLine,
@@ -62,6 +63,12 @@ export function TopNav() {
         <HeaderNavItem active={onProof} onClick={() => navigate("/proof")}>
           Live Proof
         </HeaderNavItem>
+        <a
+          href="/docs/"
+          className="rounded-md px-3 py-1.5 text-muted transition-colors hover:text-fg"
+        >
+          Docs
+        </a>
       </nav>
 
       {/* right cluster */}
@@ -387,6 +394,15 @@ function SettingsMenu() {
               <span className="text-muted">{shortAddr(m.book)} ↗</span>
             </a>
           ))}
+          <a
+            href="/docs/"
+            className="mt-1.5 flex items-center justify-between border-t border-line px-1.5 pt-2 font-semibold text-brand hover:underline"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <BookOpenText className="size-3.5" /> Documentation
+            </span>
+            <span>↗</span>
+          </a>
           <div className="mt-1.5 border-t border-line pt-1.5 text-muted">
             Non-custodial — tokens stay in your wallet until a trigger fires.
           </div>
