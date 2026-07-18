@@ -33,7 +33,7 @@ Returns real historical market data used to reconstruct the current wallet baske
 
 ## `/api/order-intent`
 
-When a supported model provider key exists, this endpoint converts a natural-language order request into a schema-constrained intent draft.
+Converts a natural-language order request into a schema-constrained intent draft through the configured model provider.
 
 The model does not:
 
@@ -43,11 +43,9 @@ The model does not:
 - bypass allocation or balance checks;
 - place an order without user review.
 
-If no production model key is configured, the endpoint capability is disabled and the UI says so.
-
 ## `/api/capabilities`
 
-Reports runtime availability for optional capabilities such as the AI planner. This lets the UI disable unavailable features truthfully before a user attempts them.
+Reports runtime availability for optional capabilities. This lets the UI adapt before a user starts an action.
 
 ## Direct third-party services
 
@@ -59,4 +57,4 @@ Reports runtime availability for optional capabilities such as the AI planner. T
 
 ## Failure behavior
 
-Provider errors are not converted into fake successful results. The UI distinguishes RPC failures, invalid contracts, missing pools, rate limits, unsupported routes, too-small amounts, and disabled optional services.
+Provider errors are not converted into fake successful results. The UI distinguishes RPC failures, invalid contracts, missing pools, rate limits, unsupported routes, and too-small amounts.

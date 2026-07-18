@@ -17,7 +17,6 @@ Last documentation update: **July 18, 2026**.
 | Swap | <span class="status-live">Live + proven</span> | Real Monad MON → USDC swap |
 | Bridge | <span class="status-live">Live + proven</span> | Real Monad → Base fill |
 | Live Proof | <span class="status-live">Live</span> | Direct RPC reads and explorer links |
-| AI planner | <span class="status-disabled">Disabled</span> | No production model provider key |
 | Keeper service | <span class="status-limited">Code only</span> | Not presented as continuously online |
 | Launchpad | <span class="status-disabled">Coming soon</span> | No launch flow is presented as working |
 | Rewards | <span class="status-disabled">Coming soon</span> | No reward accrual is presented as working |
@@ -52,10 +51,6 @@ The contract passed ERC-20 checks, but MonTerminal could not resolve a supported
 ### “Amount too small” in Swap · Bridge
 
 Relay rejected the route because the output cannot cover route costs or its minimum size. Increase the amount only after reviewing the resulting fees.
-
-### AI planner unavailable
-
-This is expected while the production environment has no model provider key. Manual order construction remains available and uses deterministic code.
 
 ### Open order cannot execute
 

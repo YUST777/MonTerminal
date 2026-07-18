@@ -32,7 +32,6 @@
   "limitations": [
     "Unaudited hackathon software",
     "No continuously hosted keeper heartbeat is claimed",
-    "AI planner is disabled without a configured production model key",
     "Small bridge routes can be economically inefficient"
   ]
 }

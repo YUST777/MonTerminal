@@ -32,8 +32,8 @@ features:
     title: Onchain evidence
     details: Deployed contracts, order counters, events, successful executions, a Relay swap, and a cross-chain fill are publicly verifiable.
   - icon: 🛡️
-    title: Honest production state
-    details: Disabled, unhosted, or coming-soon capabilities are labelled instead of being presented as working production features.
+    title: Verifiable production state
+    details: Production claims are paired with direct RPC reads, transaction receipts, contract events, and explicit safety boundaries.
 ---
 
 ## What MonTerminal does

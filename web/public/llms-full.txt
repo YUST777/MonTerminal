@@ -95,8 +95,6 @@ MonTerminal is unaudited hackathon software. Use small amounts.
 
 The repository includes a keeper, but continuous production hosting is not claimed until a public heartbeat exists.
 
-The AI order-intent endpoint requires a configured provider key. Without it, the AI tab truthfully disables itself. Manual deterministic limit orders still work.
-
 Launchpad and Rewards are visible as Coming Soon navigation teasers and are not presented as functional.
 
 External RPC, indexer, Relay, and market-data failures can temporarily degrade capabilities.

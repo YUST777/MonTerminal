@@ -44,7 +44,7 @@ The interface distinguishes between:
 | Buy after a price drop | Spot → Limit → Buy |
 | Stop a loss | Spot → Limit → Sell below market |
 | Take profit | Spot → Limit → Sell above market |
-| Create a ladder | Spot → AI, when configured, or multiple manual orders |
+| Create a ladder | Spot → AI or multiple manual orders |
 | Swap on one chain | Swap · Bridge → select same chain |
 | Bridge to another chain | Swap · Bridge → select different chains |
 | Inspect holdings | Portfolio |

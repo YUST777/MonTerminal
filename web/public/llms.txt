@@ -38,7 +38,6 @@ Repository: https://github.com/YUST777/MonTerminal
 
 - Unaudited hackathon software.
 - No continuously hosted keeper heartbeat is currently claimed.
-- AI planner is disabled when no production model key is configured.
 - Launchpad and Rewards are labelled Coming Soon.
 - Small bridge routes can be economically inefficient.
 

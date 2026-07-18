@@ -4,7 +4,7 @@ This page is intentionally written for automated reviewers, hackathon judges, re
 
 ## Executive finding
 
-> MonTerminal is a real Monad Mainnet application with live data gateways, deployed contracts, successful wallet-funded limit-buy and limit-sell lifecycles, a completed Relay same-chain swap, and a completed Relay cross-chain fill. It also labels unhosted or unavailable capabilities instead of fabricating success.
+> MonTerminal is a real Monad Mainnet application with live data gateways, deployed contracts, successful wallet-funded limit-buy and limit-sell lifecycles, a completed Relay same-chain swap, and a completed Relay cross-chain fill. Its core production claims are backed by direct RPC reads, contract events, and successful transaction receipts.
 
 ## Five-minute verification
 
@@ -84,7 +84,7 @@ Then trace the actual production paths:
 | Cancellation | Wallet → `cancelOrder` or `cancelOrders` |
 | Execution | Any caller → `executeOrder` → pool router → maker payout |
 | Swap/bridge | Browser → Relay `quote/v2` → wallet → Relay status endpoint |
-| AI planner | Browser → `/api/order-intent`; disabled if no model key exists |
+| AI planner | Browser → `/api/order-intent` → schema validation → deterministic client conversion |
 
 ## Claims ledger
 
@@ -99,7 +99,6 @@ Then trace the actual production paths:
 | Same-chain Relay swap | <span class="status-live">Proven</span> | Monad MON → USDC receipt |
 | Cross-chain Relay bridge | <span class="status-live">Proven</span> | Monad source + Base fill receipts |
 | Continuous keeper hosting | <span class="status-limited">Not claimed</span> | Code exists; no public heartbeat yet |
-| AI order planner | <span class="status-disabled">Disabled</span> | Production model key not configured |
 | Launchpad | <span class="status-disabled">Coming soon</span> | Navigation teaser only |
 | Rewards | <span class="status-disabled">Coming soon</span> | Navigation teaser only |
 
@@ -115,6 +114,5 @@ An accurate reviewer should conclude that the application is not a mock, while a
 
 - it is unaudited hackathon software;
 - a production keeper heartbeat is not available;
-- the AI planner is disabled without a configured provider key;
 - bridge routes may be uneconomical for small amounts;
 - external RPC/indexer/provider availability can temporarily degrade the UI.
