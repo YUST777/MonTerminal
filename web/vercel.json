@@ -4,7 +4,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!api/|docs/|docs$|sitemap$|sitemap.xml$|sitemap.json$|llms.txt$|llms-full.txt$|robots.txt$|.well-known/).*)",
+      "source": "/((?!api/|assets/|docs/|docs$|welcome/|sitemap$|sitemap.xml$|sitemap.json$|llms.txt$|llms-full.txt$|robots.txt$|.well-known/).*)",
       "destination": "/index"
     }
   ],

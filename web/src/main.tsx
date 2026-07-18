@@ -6,8 +6,23 @@ import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./index.css";
 import App from "./App.tsx";
+import { AppErrorBoundary } from "./components/AppErrorBoundary.tsx";
 import { wagmiConfig } from "./config/wagmi.ts";
 import { monad } from "@monolimit/shared";
+
+const CHUNK_RELOAD_KEY = "monterminal:chunk-reload-at";
+
+window.addEventListener("vite:preloadError", (event) => {
+  const now = Date.now();
+  try {
+    const lastReload = Number(window.sessionStorage.getItem(CHUNK_RELOAD_KEY));
+    if (Number.isFinite(lastReload) && now - lastReload < 15_000) return;
+    window.sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
+  } catch {}
+
+  event.preventDefault();
+  window.location.reload();
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,7 +51,9 @@ createRoot(document.getElementById("root")!).render(
             borderRadius: "small",
           })}
         >
-          <App />
+          <AppErrorBoundary>
+            <App />
+          </AppErrorBoundary>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

@@ -12,6 +12,27 @@ curl --fail --silent --show-error "$BASE_URL/" > "$TMP_DIR/index.html"
 grep -q "MonTerminal" "$TMP_DIR/index.html"
 echo "✓ frontend"
 
+if [[ "$BASE_URL" != http://127.0.0.1:* && "$BASE_URL" != http://localhost:* ]]; then
+  MAIN_ASSET="$(grep -oE '/assets/[^" ]+\.js' "$TMP_DIR/index.html" | head -n 1)"
+  test -n "$MAIN_ASSET"
+  curl --fail --silent --show-error "$BASE_URL$MAIN_ASSET" > "$TMP_DIR/main.js"
+  node -e '
+    const fs = require("fs");
+    const source = fs.readFileSync(process.argv[1], "utf8");
+    const chunks = [...source.matchAll(/(?:BridgePage|PortfolioPage|OnchainProofPage|WelcomeTutorial|ccip|index-)[A-Za-z0-9_-]*\.js/g)].map((match) => match[0]);
+    process.stdout.write([...new Set(chunks)].join("\n"));
+  ' "$TMP_DIR/main.js" > "$TMP_DIR/chunks.txt"
+  test -s "$TMP_DIR/chunks.txt"
+  while IFS= read -r chunk; do
+    curl --fail --silent --show-error --head "$BASE_URL/assets/$chunk" > "$TMP_DIR/$chunk.headers"
+    grep -qi '^content-type: application/javascript' "$TMP_DIR/$chunk.headers"
+  done < "$TMP_DIR/chunks.txt"
+
+  MISSING_ASSET_STATUS="$(curl --silent --show-error --output "$TMP_DIR/missing-asset" --write-out '%{http_code}' "$BASE_URL/assets/__monterminal_missing_chunk__.js")"
+  test "$MISSING_ASSET_STATUS" = "404"
+  echo "✓ deployment chunks and missing-asset behavior"
+fi
+
 for tutorial in 1_spot 2_limit 3_swap 4_pnl; do
   curl --fail --silent --show-error --head \
     "$BASE_URL/welcome/$tutorial.webm" > "$TMP_DIR/$tutorial.headers"
