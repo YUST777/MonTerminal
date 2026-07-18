@@ -24,11 +24,21 @@ function reserveSlot() {
 }
 
 function cachePolicy(path: string) {
-  if (path.includes("/ohlcv/")) return { freshMs: 30_000, staleMs: 10 * 60_000 };
+  if (path.includes("/ohlcv/")) return { freshMs: 30_000, staleMs: 24 * 3_600_000 };
   if (path.includes("/trades") || path.includes("/pools/")) {
     return { freshMs: 15_000, staleMs: 5 * 60_000 };
   }
   return { freshMs: 60_000, staleMs: 15 * 60_000 };
+}
+
+function emptyListFallback(path: string) {
+  const pathname = new URL(path, GECKO_ORIGIN).pathname;
+  const listPaths = [
+    "/api/v2/networks/monad/pools",
+    "/api/v2/networks/monad/trending_pools",
+    "/api/v2/networks/monad/new_pools",
+  ];
+  return listPaths.includes(pathname) ? { data: [] } : undefined;
 }
 
 function validatePath(path: unknown): string {
@@ -70,13 +80,22 @@ async function fetchGecko(path: string): Promise<unknown> {
   if (pending) return pending;
 
   const request = (async () => {
-    await sleep(reserveSlot());
-    const response = await fetch(`${GECKO_ORIGIN}${path}`, {
-      headers: { accept: "application/json", "user-agent": "MonTerminal/1.0" },
-      signal: AbortSignal.timeout(12_000),
-    });
+    try {
+      await sleep(reserveSlot());
+      const response = await fetch(`${GECKO_ORIGIN}${path}`, {
+        headers: { accept: "application/json", "user-agent": "MonTerminal/1.0" },
+        signal: AbortSignal.timeout(12_000),
+      });
 
-    if (response.status === 429) {
+      if (response.status !== 429 && !response.ok) {
+        throw new Error(`Gecko upstream ${response.status}`);
+      }
+      if (response.ok) {
+        const value = await response.json();
+        storeCache(path, value);
+        return value;
+      }
+
       const stale = staleValue(path);
       if (stale !== undefined && age < policy.staleMs) return stale;
       await sleep(6_000);
@@ -89,17 +108,13 @@ async function fetchGecko(path: string): Promise<unknown> {
       const value = await retry.json();
       storeCache(path, value);
       return value;
-    }
-
-    if (!response.ok) {
+    } catch (error) {
       const stale = staleValue(path);
       if (stale !== undefined && age < policy.staleMs) return stale;
-      throw new Error(`Gecko upstream ${response.status}`);
+      const empty = emptyListFallback(path);
+      if (empty) return empty;
+      throw error;
     }
-
-    const value = await response.json();
-    storeCache(path, value);
-    return value;
   })();
 
   inflight.set(path, request);

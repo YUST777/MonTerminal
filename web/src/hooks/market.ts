@@ -566,7 +566,10 @@ export function useCandles(pool: PoolInfo | null, tf: Timeframe) {
   return useQuery({
     queryKey: ["candles", pool?.address, tf],
     enabled: !!pool,
+    staleTime: 20_000,
     refetchInterval: 30_000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1_500 * 2 ** attempt, 6_000),
     placeholderData: keepPreviousData,
     queryFn: () => fetchOhlcv(pool!.address, tf),
   });

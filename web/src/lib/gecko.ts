@@ -85,7 +85,7 @@ export async function fetchOhlcv(
   // (portfolio needs ~17 of these at once — queueing them all through the
   // throttled gecko lane took tens of seconds cold); the background refresh
   // rewrites both caches and the poll/refetch picks the fresh data right up.
-  if (local && local.ageMs < STALE_OK_MS) {
+  if (local && local.ageMs < OHLCV_STALE_OK_MS) {
     void refresh().catch(() => {});
     return local.payload as Candle[];
   }
@@ -96,7 +96,7 @@ export async function fetchOhlcv(
     lsPut(key, shared.payload);
     return shared.payload as Candle[];
   }
-  if (shared && shared.ageMs < STALE_OK_MS) {
+  if (shared && shared.ageMs < OHLCV_STALE_OK_MS) {
     // don't lsPut — that would restamp stale data as fresh
     void refresh().catch(() => {});
     return shared.payload as Candle[];
@@ -154,6 +154,7 @@ function lsPut(key: string, payload: unknown) {
  * a cold page load never blocks on the throttled gecko queue.
  */
 const STALE_OK_MS = 10 * 60_000;
+const OHLCV_STALE_OK_MS = 24 * 3_600_000;
 
 async function cached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
   const refresh = async (): Promise<T> => {
@@ -332,11 +333,15 @@ function parsePoolRow(p: any, included?: IncludedMap): TopPool | null {
 
 /** Fetch + dedupe N pages of a gecko pool-list endpoint. */
 async function fetchPoolPages(path: string, pages: number): Promise<TopPool[]> {
-  const results = await Promise.all(
-    Array.from({ length: pages }, (_, i) =>
-      geckoJson(`${BASE}${path}page=${i + 1}&include=base_token`).catch(() => ({ data: [] })),
-    ),
-  );
+  const results: any[] = [];
+  for (let i = 0; i < pages; i += 1) {
+    const json = await geckoJson(`${BASE}${path}page=${i + 1}&include=base_token`).catch(
+      () => null,
+    );
+    if (!json) break;
+    results.push(json);
+    if ((json.data ?? []).length === 0) break;
+  }
   const seen = new Set<string>();
   const out: TopPool[] = [];
   for (const json of results) {

@@ -1,7 +1,4 @@
-import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useNewPools, useTopPools, useTrendingPools } from "../../hooks/market.ts";
-import { fetchNewPools, fetchTopPools, fetchTrendingPools } from "../../lib/gecko.ts";
 import { PoolTable } from "./PoolTable.tsx";
 import { usePersistentState } from "../../lib/persist.ts";
 
@@ -23,23 +20,6 @@ export function HomePage() {
   const fresh = useNewPools(tab === "new");
   const top = useTopPools(tab === "volume");
   const active = tab === "trending" ? trending : tab === "new" ? fresh : top;
-
-  // Warm the OTHER two tabs once, shortly after the active one paints — a
-  // tab click then hits warm react-query/localStorage/Supabase caches
-  // instead of paying 1–3 throttled gecko calls right when the user is
-  // waiting. One-shot (no polling), so the rate-limit budget stays intact.
-  const qc = useQueryClient();
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const warm = (key: string, fn: () => Promise<unknown>) =>
-        qc.prefetchQuery({ queryKey: [key], queryFn: fn, staleTime: 60_000 });
-      if (tab !== "trending") void warm("trending-pools", fetchTrendingPools);
-      if (tab !== "new") void warm("new-pools", () => fetchNewPools());
-      if (tab !== "volume") void warm("top-pools", () => fetchTopPools());
-    }, 1_500); // let the visible tab win the throttle burst first
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 px-2.5 py-2.5 sm:px-3">

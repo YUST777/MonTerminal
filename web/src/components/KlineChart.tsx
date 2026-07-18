@@ -13,7 +13,7 @@ const TFS: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 export function KlineChart() {
   const { token, pool } = useTerminal();
   const [tf, setTf] = usePersistentState<Timeframe>("chart-tf", "15m", (v) => TFS.includes(v));
-  const { data: candles } = useCandles(pool, tf);
+  const { data: candles, error: candleError, isFetching, refetch } = useCandles(pool, tf);
   const { data: orders } = useUserOrders();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<Chart | null>(null);
@@ -159,7 +159,33 @@ export function KlineChart() {
           <span className="border-b border-brand px-1 pb-px font-medium">Chart</span>
         </div>
       </div>
-      <div ref={containerRef} className="min-h-0 flex-1" />
+      <div className="relative min-h-0 flex-1">
+        <div ref={containerRef} className="absolute inset-0" />
+        {!candles?.length && (
+          <div className="absolute inset-0 grid place-items-center bg-bg/80 px-4 text-center backdrop-blur-[1px]">
+            <div>
+              {isFetching ? (
+                <>
+                  <span className="spinner mx-auto mb-2 block size-4" />
+                  <div className="text-xs font-medium">Loading candle history…</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs font-medium">
+                    {candleError ? "Market data is temporarily rate-limited" : "No candle history yet"}
+                  </div>
+                  <button
+                    onClick={() => void refetch()}
+                    className="mt-2 rounded border border-line bg-raised px-2.5 py-1 text-[11px] font-semibold hover:border-brand"
+                  >
+                    Retry chart
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
