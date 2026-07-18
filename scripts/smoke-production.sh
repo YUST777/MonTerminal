@@ -12,6 +12,13 @@ curl --fail --silent --show-error "$BASE_URL/" > "$TMP_DIR/index.html"
 grep -q "MonTerminal" "$TMP_DIR/index.html"
 echo "✓ frontend"
 
+for tutorial in 1_spot 2_limit 3_swap 4_pnl; do
+  curl --fail --silent --show-error --head \
+    "$BASE_URL/welcome/$tutorial.webm" > "$TMP_DIR/$tutorial.headers"
+  grep -qi '^content-type: video/webm' "$TMP_DIR/$tutorial.headers"
+done
+echo "✓ silent WebM welcome tutorials"
+
 curl --fail --silent --show-error "$BASE_URL/proof" > "$TMP_DIR/proof.html"
 grep -q "MonTerminal" "$TMP_DIR/proof.html"
 curl --fail --silent --show-error \

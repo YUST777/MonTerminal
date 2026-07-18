@@ -27,6 +27,9 @@ const PortfolioPage = lazy(() =>
 const OnchainProofPage = lazy(() =>
   import("./components/proof/OnchainProofPage.tsx").then((m) => ({ default: m.OnchainProofPage })),
 );
+const WelcomeTutorial = lazy(() =>
+  import("./components/WelcomeTutorial.tsx").then((m) => ({ default: m.WelcomeTutorial })),
+);
 
 export default function App() {
   const { token, pool } = useTerminal();
@@ -104,6 +107,9 @@ export default function App() {
       </div>
 
       <Toasts />
+      <Suspense fallback={null}>
+        <WelcomeTutorial />
+      </Suspense>
     </div>
   );
 }
