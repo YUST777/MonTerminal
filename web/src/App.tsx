@@ -31,25 +31,13 @@ export default function App() {
   const desktop = useMediaQuery("(min-width: 1024px)");
   // /token/monad/0x… deep links ↔ selected market; true while a deep link is
   // still resolving on first load — show a boot loader, never flash the home page.
-  const { resolving: booting, error: marketError } = useUrlMarketSync();
-
-  if (booting) {
-    return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-bg text-fg">
-        <div className="text-xl font-bold">
-          Mon<span className="monad-gradient-text">Terminal</span>
-        </div>
-        <div className="spinner size-6" />
-        <div className="text-xs text-muted">Loading market…</div>
-      </div>
-    );
-  }
+  const { error: marketError } = useUrlMarketSync();
 
   const onBridge = path === "/bridge" || path === "/swap";
   const onPortfolio = path === "/portfolio";
   // "/" is ALWAYS the home page — a selected token only means the terminal
   // when the URL says so (logo → home works even mid-trade).
-  const onTerminal = path.startsWith("/token/") && (!!token || !!marketError);
+  const onTerminal = /^\/token\/monad\/0x[0-9a-fA-F]{40}$/.test(path);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg pb-[calc(2.5rem+env(safe-area-inset-bottom))] text-fg sm:pb-[calc(2rem+env(safe-area-inset-bottom))]">
@@ -69,6 +57,8 @@ export default function App() {
         ) : onTerminal ? (
           marketError ? (
             <TokenOverview error={marketError} />
+          ) : !token ? (
+            <TokenLoading path={path} />
           ) : !pool ? (
             <TokenOverview />
           ) : desktop ? (
@@ -106,6 +96,30 @@ export default function App() {
       </div>
 
       <Toasts />
+    </div>
+  );
+}
+
+function TokenLoading({ path }: { path: string }) {
+  const address = path.split("/").pop() ?? "";
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg">
+      <div className="flex h-8 shrink-0 items-center gap-2 border-b border-line px-3 text-[11px] text-muted">
+        <span className="spinner size-3" />
+        Inspecting contract
+        <code className="ml-auto text-[10px] text-muted/70">
+          {address.slice(0, 6)}…{address.slice(-4)}
+        </code>
+      </div>
+      <div className="grid min-h-0 flex-1 place-items-center p-6">
+        <div className="w-full max-w-md text-center">
+          <div className="skeleton mx-auto mb-3 size-10 rounded-full border border-line bg-raised" />
+          <div className="text-sm font-semibold">Opening market…</div>
+          <div className="mt-1 text-xs text-muted">
+            Chart, liquidity, and trading controls appear as soon as the pool is verified.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

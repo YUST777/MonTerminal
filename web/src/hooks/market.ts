@@ -55,6 +55,8 @@ export interface TokenLookup {
   marketNotice: string | null;
 }
 
+const tokenLookupPromises = new Map<string, Promise<TokenLookup>>();
+
 /** "capricorn-monad" → "Capricorn" — for human-readable lookup errors. */
 function prettyDex(id: string) {
   return id
@@ -82,14 +84,16 @@ async function fetchErc20Meta(
   address: Address,
   fallback?: { symbol?: string; name?: string },
 ): Promise<TokenMeta> {
-  const decimals = await client.readContract({ address, abi: erc20Abi, functionName: "decimals" });
-  const [sym, nam] = await client.multicall({
-    contracts: [
-      { address, abi: erc20Abi, functionName: "symbol" },
-      { address, abi: erc20Abi, functionName: "name" },
-    ],
-    allowFailure: true,
-  });
+  const [decimals, [sym, nam]] = await Promise.all([
+    client.readContract({ address, abi: erc20Abi, functionName: "decimals" }),
+    client.multicall({
+      contracts: [
+        { address, abi: erc20Abi, functionName: "symbol" },
+        { address, abi: erc20Abi, functionName: "name" },
+      ],
+      allowFailure: true,
+    }),
+  ]);
   let symbol = sym.status === "success" ? sym.result : undefined;
   let name = nam.status === "success" ? nam.result : undefined;
   if (symbol === undefined || name === undefined) {
@@ -201,22 +205,21 @@ async function marketForPool(client: Client, pool: Address): Promise<Market | nu
  * every market's factory for TOKEN/WMON and TOKEN/USDC pairs directly.
  */
 export async function lookupToken(client: Client, address: Address): Promise<TokenLookup> {
-  // Not a contract at all → clearest possible message before any ABI call.
-  const code = await client.getCode({ address });
+  const [code, meta, pairs] = await Promise.all([
+    client.getCode({ address }),
+    fetchErc20Meta(client, address).catch(() => null),
+    fetchTokenPairs(address).catch(() => []),
+  ]);
+  // Not a contract at all → clearest possible message after the parallel probe.
   if (!code || code === "0x") {
     throw new Error(
       "No contract at this address on Monad — did you paste a wallet address, or a token from another chain?",
     );
   }
 
-  let token: TokenMeta;
-  try {
-    token = await fetchErc20Meta(client, address);
-  } catch {
-    throw new Error("This contract isn't a standard ERC-20 token");
-  }
+  if (!meta) throw new Error("This contract isn't a standard ERC-20 token");
+  const token = meta;
 
-  const pairs = await fetchTokenPairs(address).catch(() => []);
   const candidates = pairs.slice(0, 8).filter((p) => isAddress(p.address));
   if (candidates.length > 0) {
     const factories = await client.multicall({
@@ -255,6 +258,91 @@ export async function lookupToken(client: Client, address: Address): Promise<Tok
   };
 }
 
+interface StoredTokenLookup {
+  savedAt: number;
+  token: TokenMeta;
+  pool: null | {
+    address: Address;
+    fee: number;
+    tokenIsToken0: boolean;
+    quote: TokenMeta;
+    marketDexId: string;
+  };
+  marketNotice: string | null;
+}
+
+const TOKEN_CACHE_PREFIX = "monterminal.market:";
+
+function loadStoredTokenLookup(address: Address): TokenLookup | null {
+  try {
+    const raw = localStorage.getItem(TOKEN_CACHE_PREFIX + address.toLowerCase());
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as StoredTokenLookup;
+    const maxAge = stored.pool ? 24 * 60 * 60_000 : 2 * 60_000;
+    if (Date.now() - stored.savedAt > maxAge || stored.token.address.toLowerCase() !== address.toLowerCase()) {
+      return null;
+    }
+    if (!stored.pool) return { token: stored.token, pool: null, marketNotice: stored.marketNotice };
+    const market = MARKETS.find((candidate) => candidate.dexId === stored.pool!.marketDexId);
+    if (!market) return null;
+    return {
+      token: stored.token,
+      pool: {
+        address: stored.pool.address,
+        fee: stored.pool.fee,
+        tokenIsToken0: stored.pool.tokenIsToken0,
+        quote: stored.pool.quote,
+        market,
+      },
+      marketNotice: stored.marketNotice,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function storeTokenLookup(address: Address, result: TokenLookup) {
+  try {
+    const stored: StoredTokenLookup = {
+      savedAt: Date.now(),
+      token: result.token,
+      pool: result.pool
+        ? {
+            address: result.pool.address,
+            fee: result.pool.fee,
+            tokenIsToken0: result.pool.tokenIsToken0,
+            quote: result.pool.quote,
+            marketDexId: result.pool.market.dexId,
+          }
+        : null,
+      marketNotice: result.marketNotice,
+    };
+    localStorage.setItem(TOKEN_CACHE_PREFIX + address.toLowerCase(), JSON.stringify(stored));
+  } catch {
+    // Private browsing or quota failures only lose the warm-start optimization.
+  }
+}
+
+/** Share one lookup between navigation/search and reuse verified markets across reloads. */
+export function lookupTokenCached(client: Client, address: Address): Promise<TokenLookup> {
+  const key = address.toLowerCase();
+  const existing = tokenLookupPromises.get(key);
+  if (existing) return existing;
+  const stored = loadStoredTokenLookup(address);
+  if (stored) return Promise.resolve(stored);
+  const pending = lookupToken(client, address)
+    .then((result) => {
+      storeTokenLookup(address, result);
+      return result;
+    })
+    .catch((error) => {
+      tokenLookupPromises.delete(key);
+      throw error;
+    });
+  tokenLookupPromises.set(key, pending);
+  return pending;
+}
+
 export async function lookupMarket(client: Client, address: Address): Promise<MarketLookup> {
   const result = await lookupToken(client, address);
   if (!result.pool) throw new Error(result.marketNotice ?? "No supported trading pool found");
@@ -284,7 +372,7 @@ export function useTokenLookup(rawQuery: string) {
     enabled: !!client && isAddress(query),
     staleTime: 60_000,
     retry: 1,
-    queryFn: () => lookupToken(client!, query as Address),
+    queryFn: () => lookupTokenCached(client!, query as Address),
   });
 }
 
@@ -419,9 +507,10 @@ export function useUrlMarketSync(): { resolving: boolean; error: string | null }
     }
     if (inFlight.current === addr) return;
     inFlight.current = addr;
+    clearMarket();
     setResolving(true);
     setError(null);
-    lookupToken(client, m[1] as Address)
+    lookupTokenCached(client, m[1] as Address)
       .then((r) => {
         if (r.pool) setMarket(r.token, r.pool);
         else setDetectedToken(r.token, r.marketNotice ?? "No supported trading pool found");

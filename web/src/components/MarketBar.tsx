@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePublicClient } from "wagmi";
-import { isAddress } from "viem";
+import { isAddress, type Address } from "viem";
 import { MARKETS, monad } from "@monolimit/shared";
 import {
-  lookupTopPool,
+  lookupTokenCached,
   useOnchainIcons,
   usePairsMedia,
   useTokenLookup,
@@ -232,8 +232,12 @@ function MarketDropdown({ onPicked }: { onPicked: () => void }) {
   const pickRow = async (p: TopPool) => {
     if (!client || resolving) return;
     setResolving(p.address);
+    const tokenAddress = p.baseToken.toLowerCase() as Address;
+    navigate(`/token/monad/${tokenAddress}`);
+    setQuery("");
+    onPicked();
     try {
-      select(await lookupTopPool(client, p));
+      await lookupTokenCached(client, tokenAddress);
     } catch (err) {
       push("error", (err as Error).message.slice(0, 140));
     } finally {
