@@ -35,7 +35,8 @@ export function TopNav() {
     <>
     <header className="relative z-40 flex h-13 shrink-0 items-center gap-2 border-b border-line bg-bg px-3 sm:h-14 sm:gap-6 sm:px-5">
       {/* logo — always goes home */}
-      <button onClick={() => navigate("/")} className="flex shrink-0 items-baseline">
+      <button onClick={() => navigate("/")} className="flex shrink-0 items-center gap-1.5">
+        <img src="/monterminal-mark.svg" alt="" className="size-5 shrink-0 object-contain sm:size-6" />
         <span className="text-[18px] font-bold tracking-tight">
           Mon<span className="monad-gradient-text">Terminal</span>
         </span>
