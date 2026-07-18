@@ -87,6 +87,7 @@ export function TopNav() {
         <SettingsMenu />
       </div>
     </header>
+    <MobileNav onBridge={onBridge} onPair={onPair} onPortfolio={onPortfolio} pairPath={pairPath} />
     <TerminalDock onBridge={onBridge} onPair={onPair} onPortfolio={onPortfolio} pairPath={pairPath} />
     </>
   );
@@ -133,7 +134,7 @@ function TerminalDock({
   return (
     <nav
       aria-label="Primary navigation"
-      className="fixed inset-x-0 bottom-0 z-50 flex h-[calc(2.5rem+env(safe-area-inset-bottom))] items-start border-t border-line bg-[#101117]/96 px-0.5 shadow-[0_-6px_18px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:h-[calc(2rem+env(safe-area-inset-bottom))]"
+      className="fixed inset-x-0 bottom-0 z-50 hidden h-[calc(2rem+env(safe-area-inset-bottom))] items-start border-t border-line bg-[#101117]/96 px-0.5 shadow-[0_-6px_18px_rgba(0,0,0,0.16)] backdrop-blur-xl lg:flex"
     >
       <div className="hidden h-8 shrink-0 items-center gap-1.5 border-r border-line px-2.5 text-[9px] font-semibold text-up lg:flex">
         <span className="size-1.5 rounded-full bg-up shadow-[0_0_8px_rgba(119,199,175,0.8)]" />
@@ -160,6 +161,65 @@ function TerminalDock({
 
       <PriceTickers />
     </nav>
+  );
+}
+
+function MobileNav({
+  onBridge,
+  onPair,
+  onPortfolio,
+  pairPath,
+}: {
+  onBridge: boolean;
+  onPair: boolean;
+  onPortfolio: boolean;
+  pairPath: string;
+}) {
+  return (
+    <nav
+      aria-label="Mobile navigation"
+      className="fixed inset-x-3 bottom-[calc(0.65rem+env(safe-area-inset-bottom))] z-50 mx-auto grid h-12 max-w-[28rem] grid-cols-4 gap-0.5 rounded-[1.15rem] border border-line/90 bg-bg/95 p-1 shadow-[0_10px_30px_rgba(0,0,0,0.38)] backdrop-blur-xl lg:hidden"
+    >
+      <MobileNavItem active={!onBridge && !onPair && !onPortfolio} label="Discover" onClick={() => navigate("/")}>
+        <Compass />
+      </MobileNavItem>
+      <MobileNavItem active={onPair} label="Trade" onClick={() => navigate(pairPath)}>
+        <ChartLine />
+      </MobileNavItem>
+      <MobileNavItem active={onBridge} label="Swap" onClick={() => navigate("/swap")}>
+        <ArrowLeftRight />
+      </MobileNavItem>
+      <MobileNavItem active={onPortfolio} label="PnL" onClick={() => navigate("/portfolio")}>
+        <BriefcaseBusiness />
+      </MobileNavItem>
+    </nav>
+  );
+}
+
+function MobileNavItem({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`flex min-w-0 flex-col items-center justify-center gap-px rounded-[0.8rem] text-[9px] font-semibold transition-colors ${
+        active
+          ? "bg-brand/[0.09] text-brand"
+          : "text-muted active:bg-overlay/60 active:text-fg"
+      }`}
+    >
+      <span className="flex size-3.5 items-center justify-center [&>svg]:size-3.5">{children}</span>
+      <span className="max-w-full truncate">{label}</span>
+    </button>
   );
 }
 

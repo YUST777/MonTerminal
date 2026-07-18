@@ -40,7 +40,7 @@ export default function App() {
   const onTerminal = /^\/token\/monad\/0x[0-9a-fA-F]{40}$/.test(path);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg pb-[calc(2.5rem+env(safe-area-inset-bottom))] text-fg sm:pb-[calc(2rem+env(safe-area-inset-bottom))]">
+    <div className="flex h-dvh flex-col overflow-hidden bg-bg pb-[calc(4.25rem+env(safe-area-inset-bottom))] text-fg lg:pb-[calc(2rem+env(safe-area-inset-bottom))]">
       <NetworkGuard />
       <TopNav />
       {/* market selector + favorites live on every page — one-click hop to any coin */}
