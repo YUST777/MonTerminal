@@ -34,10 +34,10 @@ Open the Vite URL printed in the terminal.
 ## Documentation
 
 ```bash
-pnpm --dir docs dev
+pnpm --dir documentation dev
 ```
 
-The docs use VitePress and build with a `/docs/` base path.
+The documentation source lives in `documentation/`. VitePress builds it with a `/docs/` public base path.
 
 ## Tests
 

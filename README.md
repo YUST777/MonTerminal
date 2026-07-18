@@ -47,11 +47,11 @@ Live total value, 24h P&L and per-asset allocation read straight from the chain 
                          keeper bot       MEV searchers      you, manually
                               └── caller earns the keeper fee ────┘
                                                 │
-                                     Uniswap v3 exactInputSingle
-                                     proceeds → maker (native MON)
+                                     authenticated DEX router swap
+                                     proceeds → maker
 ```
 
-Three pieces, one pnpm monorepo:
+Five packages, one pnpm monorepo:
 
 | Package | What |
 |---|---|
@@ -59,6 +59,7 @@ Three pieces, one pnpm monorepo:
 | [`keeper/`](keeper/) | Node 22 + viem bot — polls every 1s, simulates, executes when profitable |
 | [`web/`](web/) | Vite + React 19 + Tailwind v4 dark trading terminal (chart, ladders, order dock) |
 | [`packages/shared/`](packages/shared/) | Chain def, addresses, ABI, tick/price math — unit-tested, used by web **and** keeper |
+| [`documentation/`](documentation/) | VitePress user guides, contract documentation, verification commands, and production evidence |
 
 ## Security design: how triggers are proven
 

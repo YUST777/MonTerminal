@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  docs:
+  documentation:
     devDependencies:
       vitepress:
         specifier: ^1.6.4

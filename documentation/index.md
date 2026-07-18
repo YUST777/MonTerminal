@@ -46,6 +46,7 @@ The product combines:
 - **Spot** — live chart, market statistics, recent swaps, and AMM liquidity depth.
 - **Market trading** — wallet-signed swaps against supported live pools.
 - **Limit orders** — buy-the-dip, stop-loss, take-profit, and multi-order ladders.
+- **AI planning** — natural-language order drafts converted into schema-validated intents before deterministic transaction construction.
 - **Swap · Bridge** — Relay quotes for same-chain and cross-chain routes.
 - **Portfolio** — current balances, prices, allocation, performance reconstruction, and recent activity.
 - **Live Proof** — direct Monad RPC reads plus transaction evidence.

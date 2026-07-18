@@ -34,7 +34,7 @@ MonTerminal is a pnpm monorepo containing Solidity contracts, shared order math 
 | `packages/shared/` | Chain config, deployed addresses, ABI, order math, shared types |
 | `keeper/` | Event hydration, pool watching, trigger evaluation, simulation, execution |
 | `web/` | React/Vite product UI and Vercel serverless functions |
-| `docs/` | VitePress user, technical, and verification documentation |
+| `documentation/` | VitePress user, technical, and verification documentation |
 | `scripts/` | Production smoke and ABI synchronization scripts |
 
 ## Trust boundaries

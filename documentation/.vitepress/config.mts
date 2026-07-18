@@ -3,7 +3,7 @@ import { defineConfig } from "vitepress";
 const descriptions: Record<string, string> = {
   "index.md": "Understand MonTerminal's live Monad markets, non-custodial onchain limit orders, swaps, bridges, portfolio views, and public proof.",
   "getting-started.md": "Connect a wallet, open a verified Monad market, trade safely, place an exact-approval order, and confirm the result onchain.",
-  "tutorials.md": "Three ordered MonTerminal walkthrough slots for the trading terminal, Swap and Bridge, and Portfolio, ready for final videos.",
+  "tutorials.md": "Three illustrated MonTerminal walkthroughs covering the trading terminal, Swap and Bridge, and Portfolio.",
   "safety.md": "Review MonTerminal's approval, stop-loss, bridge, malicious-token, wallet, and incident-response safety guidance.",
   "discover-and-spot.md": "Learn how MonTerminal discovers real Monad pools, verifies token contracts and factories, and renders live chart, trade, and AMM-depth data.",
   "limit-orders.md": "Learn the wallet-backed lifecycle for buy-the-dip, stop-loss, take-profit, ladder, cancellation, and permissionless execution orders.",
@@ -11,7 +11,7 @@ const descriptions: Record<string, string> = {
   "portfolio.md": "Understand live wallet balances, price joins, current-basket performance reconstruction, recent activity, caching, and limitations.",
   "onchain-proof.md": "Independently verify Monad chain ID, deployed bytecode, order counters, events, and immutable transaction evidence.",
   "ai-agent-verification.md": "A machine-oriented verification procedure, claims ledger, production path map, transaction set, and honest limitation list for MonTerminal.",
-  "production-status.md": "Current production capability matrix, smoke-test coverage, truthful disabled states, and troubleshooting guidance.",
+  "production-status.md": "Current production capability matrix, smoke-test coverage, verifiable evidence, and troubleshooting guidance.",
   "architecture.md": "Technical architecture, monorepo package map, external data flow, wallet and contract boundaries, and trust assumptions.",
   "contracts.md": "Deployed LimitOrderBook and ForkRouter addresses, trigger enforcement, public functions, events, and Foundry fork-test coverage.",
   "api-and-data.md": "Reference for MonTerminal's RPC, GeckoTerminal, portfolio-history, order-intent, capability APIs, data sources, and failure behavior.",
@@ -142,7 +142,7 @@ export default defineConfig({
       { icon: "github", link: "https://github.com/YUST777/MonTerminal" },
     ],
     editLink: {
-      pattern: "https://github.com/YUST777/MonTerminal/edit/main/docs/:path",
+      pattern: "https://github.com/YUST777/MonTerminal/edit/main/documentation/:path",
       text: "Improve this page on GitHub",
     },
     footer: {

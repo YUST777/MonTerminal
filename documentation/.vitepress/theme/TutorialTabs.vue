@@ -7,7 +7,7 @@ const tutorials = [
     title: "Trade and place onchain orders",
     description: "Discover a token, understand the live terminal, make a market trade, then place and verify a limit buy or limit sell.",
     image: "/docs/tutorial-terminal.svg",
-    alt: "SVG placeholder showing the MonTerminal spot terminal",
+    alt: "Illustration of the MonTerminal spot terminal",
     steps: ["Open a verified market", "Read chart and AMM depth", "Approve the exact order amount", "Place and verify the order"],
   },
   {
@@ -15,7 +15,7 @@ const tutorials = [
     title: "Quote, review, and follow a Relay route",
     description: "Choose origin and destination assets, inspect provider fees and minimum received, sign the source action, and follow the fill status.",
     image: "/docs/tutorial-swap-bridge.svg",
-    alt: "SVG placeholder showing a swap and cross-chain bridge route",
+    alt: "Illustration of a swap and cross-chain bridge route",
     steps: ["Select both chains and tokens", "Review impact and minimum received", "Sign on the origin chain", "Confirm the destination fill"],
   },
   {
@@ -23,7 +23,7 @@ const tutorials = [
     title: "Understand wallet balances and performance",
     description: "Read current holdings, allocation, reconstructed performance, token-level trends, and grouped recent onchain activity.",
     image: "/docs/tutorial-portfolio.svg",
-    alt: "SVG placeholder showing the MonTerminal portfolio dashboard",
+    alt: "Illustration of the MonTerminal portfolio dashboard",
     steps: ["Connect the wallet", "Review total value and allocation", "Change the chart range", "Inspect assets and recent activity"],
   },
 ] as const;
@@ -57,7 +57,7 @@ const active = ref(0);
     >
       <div class="tutorial-visual">
         <img :src="tutorials[active].image" :alt="tutorials[active].alt" />
-        <span>Video placeholder · replace with your final walkthrough</span>
+        <span>Illustrated walkthrough</span>
       </div>
       <div class="tutorial-copy">
         <span class="tutorial-number">Tutorial {{ active + 1 }} of {{ tutorials.length }}</span>
