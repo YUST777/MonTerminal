@@ -104,7 +104,10 @@ All Sourcify-verified.
 - App: https://www.monterminal.fun/
 - In-product RPC proof: https://www.monterminal.fun/proof
 - The proof page reads chain ID, current block, deployed bytecode, `nextOrderId()`, and recent order events directly from Monad RPC.
-- Example `OrderPlaced`, `OrderCancelled`, and `OrderExecuted` transactions will be added after the first deliberately small mainnet lifecycle is completed.
+- Limit buy: [`OrderPlaced #1`](https://monadscan.com/tx/0xbdd61d4a6015c2bd0fd9e5fbfa96695fd6fc1800352fe6c8e62e83db96a367d1) → [`OrderCancelled #1`](https://monadscan.com/tx/0x00aa718897662145a631cfbb068ba4c917fadc1554b9333923a4cb9f89c7b91f) → [`OrderPlaced #2`](https://monadscan.com/tx/0xcf4bfee4607aed19787d6797fd316d2eba0d71c957ab153a7319e846da63dbb1) → [`OrderExecuted #2`](https://monadscan.com/tx/0x02ae018bdbaa76a112be1b2cbcad0d2124f4531efd7cb7ac032c7aa05d009342).
+- Limit sell: [`OrderPlaced #3`](https://monadscan.com/tx/0x8e082f52375b71b99d4205a84e29e8192a1d4af1fff31c4fbd8c8606f27ed9d4) → [`OrderCancelled #3`](https://monadscan.com/tx/0xdc79cfb0391ce42c493cce5df7f62c359ca5db3230b8233a951d08c01c26a548) → [`OrderPlaced #4`](https://monadscan.com/tx/0xd144d3da656a9ca85a00fd79749f45a23fb1404de713942f802e492a215f6c3d) → [`OrderExecuted #4`](https://monadscan.com/tx/0x974a973f74773ee58ab7e5aa8fb06b545e4608b570db5b079d1bf0e27ba10f7a).
+- Relay swap: [`5 MON → 0.107470 USDC on Monad`](https://monadscan.com/tx/0x1189f0d7a0367702642187a025ef1e77c2f08a8966adcff1d63f0eae16cac12a).
+- Relay bridge: [`2 MON deposit on Monad`](https://monadscan.com/tx/0x81b0581ab9f4be8f29f355405c3acd87dec59a644bab11b0bb4ddea05328cb8f) → [`0.020909 USDC fill on Base`](https://basescan.org/tx/0x060162ace868faaae38625b3e28e86daab380cf5a8686c71eb43a19d602cd33d).
 - Keeper status is not presented as online until a continuously hosted process and public heartbeat are verified.
 
 ## Safety

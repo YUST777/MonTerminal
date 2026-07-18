@@ -25,6 +25,39 @@ interface ProofSnapshot {
 
 const EVENT_NAMES = new Set(["OrderPlaced", "OrderCancelled", "OrderExecuted"]);
 
+const MAINNET_PROOFS = [
+  {
+    label: "Limit buy placed",
+    detail: "Order #2 · 0.002 WMON → CHOG",
+    href: "https://monadscan.com/tx/0xcf4bfee4607aed19787d6797fd316d2eba0d71c957ab153a7319e846da63dbb1",
+  },
+  {
+    label: "Limit buy executed",
+    detail: "Order #2 · received 0.039329 CHOG",
+    href: "https://monadscan.com/tx/0x02ae018bdbaa76a112be1b2cbcad0d2124f4531efd7cb7ac032c7aa05d009342",
+  },
+  {
+    label: "Limit sell cancelled",
+    detail: "Order #3 · cancelled before execution",
+    href: "https://monadscan.com/tx/0xdc79cfb0391ce42c493cce5df7f62c359ca5db3230b8233a951d08c01c26a548",
+  },
+  {
+    label: "Limit sell executed",
+    detail: "Order #4 · CHOG → MON",
+    href: "https://monadscan.com/tx/0x974a973f74773ee58ab7e5aa8fb06b545e4608b570db5b079d1bf0e27ba10f7a",
+  },
+  {
+    label: "Relay swap filled",
+    detail: "5 MON → 0.107470 USDC on Monad",
+    href: "https://monadscan.com/tx/0x1189f0d7a0367702642187a025ef1e77c2f08a8966adcff1d63f0eae16cac12a",
+  },
+  {
+    label: "Relay bridge filled",
+    detail: "2 MON on Monad → 0.020909 USDC on Base",
+    href: "https://basescan.org/tx/0x060162ace868faaae38625b3e28e86daab380cf5a8686c71eb43a19d602cd33d",
+  },
+] as const;
+
 async function latestBookEvent(
   client: PublicClient,
   market: Market,
@@ -228,6 +261,31 @@ export function OnchainProofPage() {
             );
           })}
         </div>
+
+        <section className="mt-4 rounded-xl border border-up/30 bg-up/5 p-4 sm:p-5">
+          <div className="font-semibold">Executed mainnet proofs</div>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            These links are real wallet-funded transactions completed on July 18, 2026. They prove both order directions,
+            cancellation, permissionless execution, a same-chain Relay swap, and a cross-chain Relay fill.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {MAINNET_PROOFS.map((entry) => (
+              <a
+                key={entry.href}
+                href={entry.href}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-3 rounded-lg border border-line bg-bg p-3 hover:border-brand"
+              >
+                <span>
+                  <span className="block text-xs font-semibold">{entry.label}</span>
+                  <span className="mt-0.5 block text-[10px] text-muted">{entry.detail}</span>
+                </span>
+                <ExternalLink className="size-3.5 shrink-0 text-brand" />
+              </a>
+            ))}
+          </div>
+        </section>
 
         <section className="mt-4 rounded-xl border border-warn/30 bg-warn/5 p-4 text-xs leading-relaxed text-muted sm:p-5">
           <div className="font-semibold text-fg">Execution status</div>
